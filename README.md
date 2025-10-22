@@ -1,75 +1,27 @@
-# Nuxt Minimal Starter
+# Daisy 文档协作项目
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+** Daisy的意思是小雏菊，代表这个项目的意义，希望能慢慢优化成一个可以使用的在线编辑系统 **
 
-## Setup
 
-Make sure to install dependencies:
+这是一个基于 [Docusaurus 2](https://v2.docusaurus.io/) 创建的文档项目。
+开发方案的地址如下 [开发思路](https://ncnkxr7tadop.feishu.cn/wiki/HfMewR5TviPefBkO1XKcGrcunLg?from=from_copylink)
 
-```bash
-# npm
-npm install
+# 技术栈
+使用了 nuxt.js + vue.js + tailwindcss + pinia + tiptap + Yjs + websocket + Eslint + prettier 等完成
 
-# pnpm
-pnpm install
+# 运行项目
+运行项目需要安装 node.js 环境，并安装 npm 包管理工具。正在考虑迁移到pnpm工具中进行包管理
+` npm install `
+` npm run dev `
+访问地址：http://localhost:3000
 
-# yarn
-yarn install
+# 贡献指南
+1. Fork 本项目
+2. 创建一个分支
+3. 提交代码
+4. 创建一个 Pull Request
+5. 等待审核
+6. 恭喜，您已贡献了代码
 
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+# 贡献者
+1. [ourcx](https://github.com/ourcx)
