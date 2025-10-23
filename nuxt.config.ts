@@ -1,16 +1,14 @@
-import { fileURLToPath } from "url";
+
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   devtools: { enabled: true },
   pages: true, 
   modules: [
-    '@nuxtjs/tailwindcss',
     '@vueuse/nuxt',
     '@pinia/nuxt',
     '@nuxt/ui',
   ],
-  css: ['~/assets/css/main.css'],
   app: {
     head: {
       title: 'Daisy Editor',
@@ -30,13 +28,9 @@ export default defineNuxtConfig({
       },
     },
   },
-  postcss: {
-    plugins: {
-      // v3 使用的插件名称
-      tailwindcss: {}, 
-      autoprefixer: {},
-    },
-  },
+  css: [
+    '~/assets/css/main.css'
+  ],
   // imports: {
   //   dirs: [
   //     'composables',
