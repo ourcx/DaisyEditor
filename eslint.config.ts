@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 import pluginVue from 'eslint-plugin-vue'
+// @ts-ignore
 import stylistic from '@stylistic/eslint-plugin' // 用于替代 Prettier 的代码风格规则
 
 // 使用 defineConfig 可以获得类型提示 :cite[2]
@@ -69,5 +70,8 @@ export default tseslint.config(
     rules: {
       'no-console': 'off',
     },
-  }
+  },
+
 )
+
+//  xxxxxxxxxx {  modules: [    '@nuxtjs/tailwindcss'  ]}
