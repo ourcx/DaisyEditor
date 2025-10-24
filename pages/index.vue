@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div style="text-align: center">
     <h1>欢迎使用协同编辑器</h1>
   </div>
 </template>
