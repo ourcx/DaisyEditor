@@ -1,10 +1,10 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
-import Aura from '@primeuix/themes/aura';
-
+// nuxt.config.ts
+import Aura from '@primevue/themes/aura';
+import mypreset from './plugin/myPreset';
 export default defineNuxtConfig({
   devtools: { enabled: true },
   pages: true,
-  modules: ["@vueuse/nuxt", "@pinia/nuxt",'@primevue/nuxt-module'],
+  modules: ["@vueuse/nuxt", "@pinia/nuxt", '@primevue/nuxt-module'],
   app: {
     head: {
       title: "Daisy Editor",
@@ -15,39 +15,34 @@ export default defineNuxtConfig({
       link: [{ rel: "icon", type: "image/x-icon", href: "/favicon.ico" }],
     },
   },
+  
   css: ["~/assets/css/main.css"],
-  postcss: {
-    plugins: {
-    },
-  },
   primevue: {
+    //这样的导入方式才是正确的
+    options: {
+      ripple: true,
+      inputVariant: 'filled',
+      theme: {
+        // 这里不需要 preset 选项，因为通过 importTheme 导入了
+        preset: mypreset ,
         options: {
-            ripple: true,
-            inputVariant: 'filled',
-            theme: {
-                preset: Aura,
-                options: {
-                    prefix: 'p',
-                    darkModeSelector: 'system',
-                    cssLayer: false
-                }
-            }
-        },
-    autoImport: true,
-    components: {
-        prefix: 'org'
+          prefix: 'p',
+          darkModeSelector: 'system',
+          cssLayer: false
+        }
+      }
     },
-    directives: {
-        prefix: 'org'
-    }
-    }
-  // imports: {
-  //   dirs: [
-  //     'composables',
-  //     'composables/*/index.{ts,js,mjs,mts}',
-  //     'composables/**'
-  //   ]
-  // },
-
-  // 移除 alias 配置，让 Nuxt 使用默认别名
+    
+    
+    // 如果使用 autoImport，就不需要手动指定 components 和 directives
+    autoImport: true,
+    
+    // 移除这些配置，让 autoImport 自动处理
+    // components: {
+    //   prefix: 'org'
+    // },
+    // directives: {
+    //   prefix: 'org'
+    // }
+  }
 });
