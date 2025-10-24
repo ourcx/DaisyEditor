@@ -1,36 +1,46 @@
-
-
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import Aura from '@primeuix/themes/aura';
+
 export default defineNuxtConfig({
   devtools: { enabled: true },
-  pages: true, 
-  modules: [
-    '@vueuse/nuxt',
-    '@pinia/nuxt',
-    '@nuxt/ui',
-  ],
+  pages: true,
+  modules: ["@vueuse/nuxt", "@pinia/nuxt",'@primevue/nuxt-module'],
   app: {
     head: {
-      title: 'Daisy Editor',
+      title: "Daisy Editor",
       meta: [
-        { name: 'description', content: 'Daisy Editor' },
-        { name: 'keywords', content: 'Daisy Editor' },
+        { name: "description", content: "Daisy Editor" },
+        { name: "keywords", content: "Daisy Editor" },
       ],
-      link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
-      ]
-    }
-  },
-  fonts: {
-    providers: {
-      google: {
-        mode: 'cdn', // 通过 link 标签加载，绕过构建时的下载
-      },
+      link: [{ rel: "icon", type: "image/x-icon", href: "/favicon.ico" }],
     },
   },
-  css: [
-    '~/assets/css/main.css'
-  ],
+  css: ["~/assets/css/main.css"],
+  postcss: {
+    plugins: {
+    },
+  },
+  primevue: {
+        options: {
+            ripple: true,
+            inputVariant: 'filled',
+            theme: {
+                preset: Aura,
+                options: {
+                    prefix: 'p',
+                    darkModeSelector: 'system',
+                    cssLayer: false
+                }
+            }
+        },
+    autoImport: true,
+    components: {
+        prefix: 'org'
+    },
+    directives: {
+        prefix: 'org'
+    }
+    }
   // imports: {
   //   dirs: [
   //     'composables',
@@ -38,6 +48,6 @@ export default defineNuxtConfig({
   //     'composables/**'
   //   ]
   // },
-  
+
   // 移除 alias 配置，让 Nuxt 使用默认别名
-})
+});

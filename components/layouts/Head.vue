@@ -1,59 +1,67 @@
-<script setup lang="ts">
-import type { NavigationMenuItem } from "@nuxt/ui";
-import { computed } from "vue";
+<template>
+  <div class="container">
+    <div class="card grid grid-cols-1 md:grid-cols-2 gap-4">
+      <InputGroup>
+        <InputGroupAddon>
+          <i class="pi pi-user"></i>
+        </InputGroupAddon>
+        <InputText v-model="text1" placeholder="Username" />
+      </InputGroup>
 
-const route = useRoute();
+      <InputGroup>
+        <InputGroupAddon>$</InputGroupAddon>
+        <InputNumber v-model="number" placeholder="Price" />
+        <InputGroupAddon>.00</InputGroupAddon>
+      </InputGroup>
 
-const items = computed<NavigationMenuItem[]>(() => [
-  {
-    label: "Docs",
-    to: "/getting-started",
-    active: route.path.startsWith("/getting-started"),
-  },
-  {
-    label: "Components",
-    to: "/components",
-  },
-  {
-    label: "Roadmap",
-    to: "/roadmap",
-    active: route.path.startsWith("/roadmap"),
-  },
-  {
-    label: "Figma",
-    to: "https://go.nuxt.com/figma-ui3",
-    target: "_blank",
-  },
-  {
-    label: "Releases",
-    to: "https://github.com/nuxt/ui/releases",
-    target: "_blank",
-  },
+      <InputGroup>
+        <InputGroupAddon>www</InputGroupAddon>
+        <InputText v-model="text2" placeholder="Website" />
+      </InputGroup>
+
+      <InputGroup>
+        <InputGroupAddon>
+          <i class="pi pi-map"></i>
+        </InputGroupAddon>
+        <Select
+          v-model="selectedCity"
+          :options="cities"
+          optionLabel="name"
+          placeholder="City"
+        />
+      </InputGroup>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import InputGroup from "primevue/inputgroup";
+import InputGroupAddon from "primevue/inputgroupaddon";
+import InputText from "primevue/inputtext";
+import InputNumber from "primevue/inputnumber";
+import Select from "primevue/select";
+
+const text1 = ref(null);
+const text2 = ref(null);
+const number = ref(null);
+const selectedCity = ref();
+const cities = ref([
+  { name: "New York", code: "NY" },
+  { name: "Rome", code: "RM" },
+  { name: "London", code: "LDN" },
+  { name: "Istanbul", code: "IST" },
+  { name: "Paris", code: "PRS" },
 ]);
 </script>
 
-<template>
-  <UHeader>
-    <template #title>
-      <!-- 替换 Logo 为文本 -->
-      <span class="text-xl font-bold">My App</span>
-    </template>
+<style scoped>
+.container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
 
-    <UNavigationMenu :items="items" />
-
-    <template #right>
-      <UColorModeButton />
-
-      <UTooltip text="Open on GitHub" :kbds="['meta', 'G']">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          to="https://github.com/nuxt/ui"
-          target="_blank"
-          icon="i-simple-icons-github"
-          aria-label="GitHub"
-        />
-      </UTooltip>
-    </template>
-  </UHeader>
-</template>
+.card {
+  padding: 1rem;
+}
+</style>
