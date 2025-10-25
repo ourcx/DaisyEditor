@@ -1,8 +1,17 @@
 <template>
   <div class="scroll-animation-container">
     <div class="progress-bar" :style="{ width: scrollProgress + '%' }"></div>
-
     <section class="content" ref="classElement">
+      <h1 class="card-title">项目分层策略</h1>
+      <div class="card overflow-x-auto">
+        <OrganizationChart :value="data">
+          <template #default="slotProps">
+            <span>{{ slotProps.node.label }}</span>
+          </template>
+        </OrganizationChart>
+      </div>
+    </section>
+    <!-- <section class="content">
       <div
         class="animated-box"
         :style="{
@@ -12,19 +21,7 @@
       >
         随滚动动画
       </div>
-    </section>
-
-    <section class="content">
-      <div
-        class="animated-box"
-        :style="{
-          opacity: boxOpacity,
-          transform: `rotate(${boxRotation}deg) scale(${boxScale})`,
-        }"
-      >
-        随滚动动画
-      </div>
-    </section>
+    </section> -->
   </div>
 </template>
 
@@ -36,6 +33,35 @@ const boxOpacity = ref(0);
 const boxRotation = ref(0);
 const boxScale = ref(0.5);
 const classElement = ref<HTMLElement | null>(null);
+
+// 修复数据：确保每个节点都有唯一的 key
+const data = ref<any>({
+  label: "Argentina",
+  children: [
+    {
+      label: "Argentina",
+      children: [
+        {
+          label: "Argentina",
+        },
+        {
+          label: "Croatia",
+        },
+      ],
+    },
+    {
+      label: "France",
+      children: [
+        {
+          label: "France",
+        },
+        {
+          label: "Morocco",
+        },
+      ],
+    },
+  ],
+});
 
 const handleScroll = () => {
   const scrollY = window.scrollY;
@@ -83,7 +109,7 @@ onUnmounted(() => {
 
 <style scoped>
 .scroll-animation-container {
-  min-height: 200vh; /* 确保有足够的滚动空间 */
+  min-height: 100vh; /* 确保有足够的滚动空间 */
   background-attachment: fixed;
   background-image: url("https://s2.loli.net/2025/04/02/Wc3qF7w2OVNiKlG.jpg");
   background-size: cover;
@@ -122,5 +148,12 @@ onUnmounted(() => {
   font-size: 1.2rem;
   font-weight: bold;
   /* 移除transition，让动画完全由JavaScript控制 */
+}
+
+.card-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: white;
 }
 </style>

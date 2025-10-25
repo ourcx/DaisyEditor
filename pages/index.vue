@@ -16,13 +16,10 @@
     />
   </div>
   <div class="collaborative-fourth">
-    <Animation />
+    <Panel />
   </div>
   <div class="collaborative-fifth">
-    <h1>占位置的</h1>
-    <br />
-    <br />
-    <br />
+    <Animation />
   </div>
 </template>
 
@@ -32,6 +29,7 @@ import Tip from "~/components/home/tip.vue";
 import Video from "~/components/home/Video.vue";
 import Animation from "~/components/home/Animation.vue";
 import Chart from "primevue/chart";
+import Panel from "~/components/home/Panel.vue";
 
 onMounted(() => {
   chartData.value = setChartData();
@@ -139,5 +137,9 @@ const setChartOptions = () => {
   justify-content: center;
   flex: 1;
   height: 100vh;
+}
+
+.collaborative-fourth {
+  background-color: var(--fei-bg-color);
 }
 </style>
