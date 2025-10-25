@@ -10,3 +10,11 @@
 import Head from "../components/layouts/Head.vue";
 import Footer from "~/components/layouts/Footer.vue";
 </script>
+
+
+<style lang="scss">
+.container {
+  max-width: 100vw;
+  background-color: var(--fei-bg);
+}
+</style>

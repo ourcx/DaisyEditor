@@ -1,5 +1,5 @@
 <template>
-  <header class="header">
+  <header class="header" :class="{ 'header-bg': bg }">
     <div class="header-container">
       <!-- Logo区域 -->
       <div class="logo-section">
@@ -105,6 +105,7 @@ import InputGroupAddon from "primevue/inputgroupaddon";
 import InputText from "primevue/inputtext";
 import Button from "primevue/button";
 
+const bg = ref(false);
 // 响应式数据
 const searchQuery = ref("");
 const mobileMenuOpen = ref(false);
@@ -113,15 +114,28 @@ const mobileMenuOpen = ref(false);
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value;
 };
+
+//监听页面滚动
+onMounted(() => {
+  window.addEventListener("scroll", () => {
+    bg.value = window.scrollY > 0;
+  });
+});
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .header {
-  background: transparent;
   position: sticky;
   top: 0;
   z-index: 1000;
   width: 100%;
+  height: 10vh;
+  transition: all 0.3s ease-in-out;
+}
+
+.header-bg {
+  background-color: var(--fei-bg-color);
+  height: 8vh;
 }
 
 .header-container {
@@ -131,6 +145,7 @@ const toggleMobileMenu = () => {
   padding: 0.75rem 2rem;
   max-width: 1400px;
   margin: 0 auto;
+  height: 100%;
 }
 
 /* Logo区域样式 */

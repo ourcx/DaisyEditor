@@ -82,7 +82,7 @@ const props = withDefaults(defineProps<FooterProps>(), {
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .fei-footer {
   width: 100%;
   box-sizing: border-box;
