@@ -21,6 +21,19 @@
   <div class="collaborative-fifth">
     <Animation />
   </div>
+  <div class="collaborative-sixth">
+    <sixth />
+    <Fieldset legend="Header">
+      <p class="m-0">
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+        incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+        exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute
+        irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
+        pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui
+        officia deserunt mollit anim id est laborum.
+      </p>
+    </Fieldset>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -30,7 +43,7 @@ import Video from "~/components/home/Video.vue";
 import Animation from "~/components/home/Animation.vue";
 import Chart from "primevue/chart";
 import Panel from "~/components/home/Panel.vue";
-
+import sixth from "~/components/home/sixth.vue";
 onMounted(() => {
   chartData.value = setChartData();
   chartOptions.value = setChartOptions();
@@ -141,5 +154,14 @@ const setChartOptions = () => {
 
 .collaborative-fourth {
   background-color: var(--fei-bg-color);
+}
+
+.collaborative-sixth {
+  padding: 2rem;
+  background-color: var(--fei-color-success-light-3);
+  width: 100%;
+  height: 60vh;
+  display: flex;
+  align-items: center;
 }
 </style>

@@ -75,7 +75,11 @@ const props = withDefaults(defineProps<FooterProps>(), {
   textAlign: "center",
   main: () => ["技术支持", "备案信息", "联系方式", "免责声明", "隐私政策"],
   bottom: "Copyright © 2024 FeiUI. All Rights Reserved.",
-  copyright: () => ["备案号：粤ICP备2024012345号-1", "技术支持：FeiUI", "联系邮箱："],
+  copyright: () => [
+    "备案号：粤ICP备2024012345号-1",
+    "技术支持：FeiUI",
+    "联系邮箱：3277975910@qq.com",
+  ],
   social: () => ["微信", "微博", "QQ", "GitHub", "知乎", "抖音", "小红书", "B站", "头条"],
   right: "欢迎使用",
   type: "primary",
@@ -175,7 +179,7 @@ const props = withDefaults(defineProps<FooterProps>(), {
 .fei-footer-bottom {
   width: 100%;
   max-width: 1200px;
-  margin: 0 auto;
+  margin: 0 20px;
   padding: 10px 0 15px;
   text-align: center;
 }
