@@ -34,6 +34,17 @@
       </p>
     </Fieldset>
   </div>
+  <div class="collaborative-seventh">
+    <div>
+      <!-- 页面占位 -->
+      <div>
+        <div>
+          <Panel header="Header"> xxxxxxxxxxxxxx </Panel>
+        </div>
+      </div>
+    </div>
+    <sixth />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -43,7 +54,7 @@ import Video from "~/components/home/Video.vue";
 import Animation from "~/components/home/Animation.vue";
 import Chart from "primevue/chart";
 import Panel from "~/components/home/Panel.vue";
-import sixth from "~/components/home/sixth.vue";
+import sixth from "~/components/home/ImageFei.vue";
 onMounted(() => {
   chartData.value = setChartData();
   chartOptions.value = setChartOptions();
@@ -159,6 +170,15 @@ const setChartOptions = () => {
 .collaborative-sixth {
   padding: 2rem;
   background-color: var(--fei-color-success-light-3);
+  width: 100%;
+  height: 60vh;
+  display: flex;
+  align-items: center;
+}
+
+.collaborative-seventh {
+  padding: 2rem;
+  background-color: var(--fei-color-primary-light-3);
   width: 100%;
   height: 60vh;
   display: flex;

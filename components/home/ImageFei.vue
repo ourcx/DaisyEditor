@@ -45,6 +45,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 // 图片区域
 .image-section {
+  width: 30rem;
   .image-container {
     position: relative;
     border-radius: 20px;

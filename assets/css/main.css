@@ -1,6 +1,13 @@
+/* 正确的顺序：@import 必须在最前面 */
 @import "primeicons/primeicons.css";
 @import "./var.css";
-body { 
+
+/* 然后才是 Tailwind 指令 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
   margin: 0; 
   padding: 0; 
 }
