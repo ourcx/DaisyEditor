@@ -7,4 +7,7 @@
 
 <script setup>
 // 这里可以添加页面逻辑
+definePageMeta({
+  layout: "entre",
+});
 </script>
