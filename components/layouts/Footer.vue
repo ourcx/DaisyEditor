@@ -71,7 +71,7 @@ const props = withDefaults(defineProps<FooterProps>(), {
   height: "auto",
   color: "#333",
   border: "1px solid #e8e8e8",
-  padding: "0 20px",
+  padding: "40px 20px",
   textAlign: "center",
   main: () => ["技术支持", "备案信息", "联系方式", "免责声明", "隐私政策"],
   bottom: "Copyright © 2024 FeiUI. All Rights Reserved.",

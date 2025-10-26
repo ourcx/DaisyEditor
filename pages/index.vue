@@ -6,7 +6,7 @@
     <Video />
   </div>
   <div class="collaborative-third">
-    <h1>项目数据</h1>
+    <h1>项目数据统计</h1>
     <Chart
       type="line"
       :data="chartData"
@@ -23,27 +23,33 @@
   </div>
   <div class="collaborative-sixth">
     <sixth />
-    <Fieldset legend="Header">
+    <Fieldset legend="项目介绍">
       <p class="m-0">
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-        incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
-        exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute
-        irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
-        pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui
-        officia deserunt mollit anim id est laborum.
+        Daisy协作编辑平台是一个创新的在线协作工具，旨在帮助团队成员高效地协同编辑文档。
+        它提供了实时协作、版本控制和评论功能，使团队协作更加流畅。无论您身在何处，都能与团队保持同步，
+        共同创作出卓越的文档。我们的平台支持多种文件格式，包括文档、表格和演示文稿，满足您不同的工作需求。
       </p>
     </Fieldset>
   </div>
   <div class="collaborative-seventh">
     <div>
-      <!-- 页面占位 -->
+      <!-- 功能特性展示 -->
       <div>
         <div>
-          <Panel header="Header"> xxxxxxxxxxxxxx </Panel>
+          <Panel header="核心功能">
+            <p>实时协作编辑 | 版本历史管理 | 多格式支持 | 智能评论系统 | 权限管理</p>
+            <p>
+              Daisy协作编辑器让团队协作变得更加简单高效，支持多人同时在线编辑，实时同步更改，
+              确保每个团队成员都能及时了解项目进展。
+            </p>
+          </Panel>
         </div>
       </div>
     </div>
     <sixth />
+  </div>
+  <div class="collaborative-eighth">
+    <Text />
   </div>
 </template>
 
@@ -55,6 +61,7 @@ import Animation from "~/components/home/Animation.vue";
 import Chart from "primevue/chart";
 import Panel from "~/components/home/Panel.vue";
 import sixth from "~/components/home/ImageFei.vue";
+import Text from "~/components/home/Text.vue";
 onMounted(() => {
   chartData.value = setChartData();
   chartOptions.value = setChartOptions();
@@ -70,7 +77,7 @@ const setChartData = () => {
     labels: ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"],
     datasets: [
       {
-        label: "pv",
+        label: "页面浏览量",
         fill: false,
         borderColor: documentStyle.getPropertyValue("--p-cyan-500"),
         yAxisID: "y",
@@ -78,7 +85,7 @@ const setChartData = () => {
         data: [65, 59, 80, 81, 56, 55, 10],
       },
       {
-        label: "uv",
+        label: "独立访客",
         fill: false,
         borderColor: documentStyle.getPropertyValue("--p-gray-500"),
         yAxisID: "y1",
@@ -179,6 +186,14 @@ const setChartOptions = () => {
 .collaborative-seventh {
   padding: 2rem;
   background-color: var(--fei-color-primary-light-3);
+  width: 100%;
+  height: 60vh;
+  display: flex;
+  align-items: center;
+}
+
+.collaborative-eighth {
+  padding: 2rem;
   width: 100%;
   height: 60vh;
   display: flex;
