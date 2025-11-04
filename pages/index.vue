@@ -176,7 +176,7 @@ const setChartOptions = () => {
 
 .collaborative-sixth {
   padding: 2rem;
-  background-color: var(--fei-color-success-light-3);
+  background-color: var(--fei-bg);
   width: 100%;
   height: 60vh;
   display: flex;
@@ -185,7 +185,7 @@ const setChartOptions = () => {
 
 .collaborative-seventh {
   padding: 2rem;
-  background-color: var(--fei-color-primary-light-3);
+  background-color: var(--fei-bg);
   width: 100%;
   height: 60vh;
   display: flex;

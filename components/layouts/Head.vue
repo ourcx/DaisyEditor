@@ -13,16 +13,17 @@
       <nav class="nav-section">
         <ul class="nav-menu">
           <li class="nav-item">
-            <a href="#" class="nav-link active">首页</a>
+            <router-link to="/" class="nav-link active">首页</router-link>
           </li>
           <li class="nav-item">
-            <a href="#" class="nav-link">产品</a>
+            <!-- 页面跳转 -->
+            <router-link to="/product" class="nav-link">产品</router-link>
           </li>
           <li class="nav-item">
-            <a href="#" class="nav-link">解决方案</a>
+            <router-link to="/" class="nav-link">解决方案</router-link>
           </li>
           <li class="nav-item">
-            <a href="#" class="nav-link">关于我们</a>
+            <router-link to="/" class="nav-link">关于我们</router-link>
           </li>
         </ul>
       </nav>
@@ -51,7 +52,12 @@
             class="p-button-rounded p-button-text action-btn"
             severity="secondary"
           />
-          <Button label="登录" class="login-btn" severity="primary" />
+          <Button
+            label="登录"
+            class="login-btn"
+            severity="primary"
+            @click="toggle('login')"
+          />
         </div>
 
         <!-- 移动端菜单按钮 -->
@@ -121,6 +127,16 @@ onMounted(() => {
     bg.value = window.scrollY > 0;
   });
 });
+
+const toggleMap = {
+  login: "/entre",
+};
+
+const toggle = (index) => {
+  //跳转页面
+  const path = toggleMap[index];
+  return navigateTo(path);
+};
 </script>
 
 <style scoped lang="scss">
@@ -131,6 +147,7 @@ onMounted(() => {
   width: 100%;
   height: 10vh;
   transition: all 0.3s ease-in-out;
+  background: transparent;
 }
 
 .header-bg {
@@ -146,6 +163,7 @@ onMounted(() => {
   max-width: 1400px;
   margin: 0 auto;
   height: 100%;
+  background: transparent;
 }
 
 /* Logo区域样式 */

@@ -23,6 +23,7 @@ export default defineNuxtConfig({
       autoprefixer: {},
     },
   },
+  
   css: ["~/assets/css/main.css"],
   primevue: {
     //这样的导入方式才是正确的

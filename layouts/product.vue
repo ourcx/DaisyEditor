@@ -14,6 +14,6 @@ import Footer from "~/components/layouts/Footer.vue";
 <style lang="scss" scoped>
 .container {
   max-width: 100vw;
-  background-color: var(--fei-bg);
+  background-color: transparent;
 }
 </style>
