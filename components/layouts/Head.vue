@@ -23,7 +23,7 @@
             <router-link to="/" class="nav-link">解决方案</router-link>
           </li>
           <li class="nav-item">
-            <router-link to="/" class="nav-link">关于我们</router-link>
+            <router-link to="/about" class="nav-link">关于我们</router-link>
           </li>
         </ul>
       </nav>
