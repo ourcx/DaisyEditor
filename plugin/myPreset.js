@@ -112,7 +112,7 @@ export default definePreset(Aura, {
                     disabled: 'var(--fei-disabled-border-color)'
                 },
 
-                // ========== 表单字段 ==========
+                // ========== 表单字段 - 重点优化 ==========
                 formField: {
                     background: 'var(--fei-bg-color)',
                     disabledBackground: 'var(--fei-disabled-bg-color)',
@@ -130,10 +130,14 @@ export default definePreset(Aura, {
                     paddingY: '0.5rem',
                     borderRadius: 'var(--fei-border-radius-base)',
                     focusRing: {
-                        width: '2px',
+                        width: '1px',
                         style: 'solid',
                         color: 'var(--fei-color-primary)',
-                        offset: '1px'
+                        offset: '0'
+                    },
+                    transition: {
+                        duration: '0.2s',
+                        timing: 'ease-in-out'
                     }
                 }
             },
@@ -236,15 +240,7 @@ export default definePreset(Aura, {
                     }
                 },
 
-                // ========== 深色模式边框颜色 ==========
-                // border: {
-                //     color: '#334155',
-                //     hover: '#475569',
-                //     focus: 'var(--fei-color-primary)',
-                //     disabled: '#1e293b'
-                // },
-
-                // ========== 深色模式表单字段 ==========
+                // ========== 深色模式表单字段 - 重点优化 ==========
                 formField: {
                     background: '#1e293b',
                     disabledBackground: '#0f172a',
@@ -262,12 +258,65 @@ export default definePreset(Aura, {
                     paddingY: '0.5rem',
                     borderRadius: 'var(--fei-border-radius-base)',
                     focusRing: {
-                        width: '2px',
+                        width: '1px',
                         style: 'solid',
                         color: 'var(--fei-color-primary)',
-                        offset: '1px'
+                        offset: '0'
+                    },
+                    transition: {
+                        duration: '0.2s',
+                        timing: 'ease-in-out'
                     }
                 }
+            }
+        }
+    },
+
+    // ========== 组件特定配置 - 新增输入框优化 ==========
+    components: {
+        inputtext: {
+            root: {
+                class: [
+                    'w-full',
+                    'font-sans',
+                    'text-base',
+                    'bg-white',
+                    'border',
+                    'rounded-lg',
+                    'transition-colors',
+                    'duration-200',
+                    'ease-in-out',
+                    'outline-none',
+                    'focus:border-primary-500',
+                    'focus:ring-1',
+                    'focus:ring-primary-500',
+                    'hover:border-gray-400',
+                    'disabled:bg-gray-100',
+                    'disabled:text-gray-400',
+                    'disabled:cursor-not-allowed'
+                ]
+            }
+        },
+        
+        // 如果你使用了其他输入组件，也可以在这里配置
+        inputnumber: {
+            root: {
+                class: [
+                    'w-full',
+                    'focus:border-primary-500',
+                    'focus:ring-1',
+                    'focus:ring-primary-500'
+                ]
+            }
+        },
+        
+        dropdown: {
+            root: {
+                class: [
+                    'focus:border-primary-500',
+                    'focus:ring-1',
+                    'focus:ring-primary-500'
+                ]
             }
         }
     },
@@ -309,7 +358,7 @@ export default definePreset(Aura, {
             }
         },
 
-        // 过渡动画
+        // 过渡动画 - 优化输入框过渡
         transition: {
             duration: 'var(--fei-transition-duration)',
             timing: {
@@ -337,12 +386,12 @@ export default definePreset(Aura, {
             8: '2rem'
         },
 
-        // 焦点环
+        // 焦点环 - 优化焦点样式
         focusRing: {
-            width: '2px',
+            width: '1px',
             style: 'solid',
             color: 'var(--fei-color-primary)',
-            offset: '1px',
+            offset: '0',
         }
     }
 });

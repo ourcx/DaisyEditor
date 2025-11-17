@@ -10,7 +10,8 @@
         <div class="index-content-desc text-xl md:text-2xl text-gray-600 mb-8 font-light">
           文档协作编辑
         </div>
-        <Button label="开始使用 >"></Button>
+        <Button label="开始使用 >" @click="ToDocs">
+        </Button>
       </div>
     </div>
     <div class="index-two">
@@ -181,6 +182,7 @@ import Button from "primevue/button";
 import Image from "primevue/image";
 import Galleria from "primevue/galleria";
 import { ref, onMounted } from "vue";
+import { navigateTo } from "#app";
 definePageMeta({
   layout: "product" as any,
 });
@@ -206,6 +208,9 @@ const responsiveOptions = ref([
   },
 ]);
 
+const ToDocs = () => {
+  navigateTo("/entre");
+}
 const next = () => {
   activeIndex.value =
     activeIndex.value === images.value.length - 1
