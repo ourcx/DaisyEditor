@@ -1,5 +1,5 @@
 <template>
-    <div class="canvas-container" ref="containerRef" @wheel="handleCanvasWheel"  @mousedown="dragCanvas">
+    <div class="canvas-container" ref="containerRef" @wheel="handleCanvasWheel" @mousedown="dragCanvas">
         <div class="grid-bg" :style="gridStyle"></div>
         <div ref="canvasRef" class="canvas" :style="canvasStyle">
             <div v-for="(page, index) in pages" :key="index"
@@ -16,16 +16,17 @@
                 <p class="text-gray-600">x: {{ page.rect.x }}, y: {{ page.rect.y }}</p>
             </div>
         </div>
-        
+
         <div class="fixed bottom-4 right-4 bg-black/70 text-white p-2 rounded text-xs">
-            Scale: {{ transformRef.scale.toFixed(2) }} | X: {{ transformRef.x.toFixed(0) }} | Y: {{ transformRef.y.toFixed(0) }}
+            Scale: {{ transformRef.scale.toFixed(2) }} | X: {{ transformRef.x.toFixed(0) }} | Y: {{
+                transformRef.y.toFixed(0) }}
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({
-  layout: false,
+    layout: false,
 });
 
 import { ref, computed, onMounted, onUnmounted, type CSSProperties } from 'vue';
@@ -58,8 +59,7 @@ const canvasStyle = computed<CSSProperties>(() => ({
     position: 'absolute',
     top: '0',
     left: '0',
-    // 必须 visible，否则移出 0x0 区域的内容会被裁剪
-    overflow: 'visible' 
+    overflow: 'visible'
 }));
 
 // --- 核心改动 2: 网格背景样式 ---
@@ -67,7 +67,7 @@ const canvasStyle = computed<CSSProperties>(() => ({
 const gridStyle = computed<CSSProperties>(() => {
     const { x, y, scale } = transformRef.value;
     const gridSize = 20 * scale; // 网格大小随缩放变化
-    
+
     return {
         position: 'absolute',
         inset: 0, // 铺满父容器
@@ -93,18 +93,16 @@ const startTranslateY = ref(0);
 const dragCanvas = (e: MouseEvent) => {
     // 只有按住空格 或者 鼠标中键 或者 特定模式才允许拖拽，防止与选中文本冲突
     // 这里为了演示保留左键直接拖拽，但建议配合 Space 键判断
-    if (e.button !== 0) return; 
-
-    isDragging.value = true;
+    if (e.button !== 0) return;
+    //增加空格判断
     startX.value = e.clientX;
     startY.value = e.clientY;
     startTranslateX.value = transformRef.value.x;
     startTranslateY.value = transformRef.value.y;
-    
-    if (containerRef.value) containerRef.value.style.cursor = 'grabbing';
 
     const mouseMove = throttle((e: MouseEvent) => {
         if (!isDragging.value) return;
+        if (containerRef.value) containerRef.value.style.cursor = 'grabbing';
         const offsetX = e.clientX - startX.value;
         const offsetY = e.clientY - startY.value;
 
@@ -118,8 +116,7 @@ const dragCanvas = (e: MouseEvent) => {
     }, 16);
 
     const mouseUp = () => {
-        isDragging.value = false;
-        if (containerRef.value) containerRef.value.style.cursor = 'default';
+        if (containerRef.value) containerRef.value.style.cursor = 'grab';
         document.removeEventListener('mousemove', mouseMove);
         document.removeEventListener('mouseup', mouseUp);
     };
@@ -136,7 +133,7 @@ const handleCanvasWheel = throttle((event: WheelEvent) => {
     // 缩放 (Ctrl + 滚轮 或 触控板捏合)
     if (ctrlKey || metaKey) {
         if (!containerRef.value) return;
-        
+
         const rect = containerRef.value.getBoundingClientRect();
         // 鼠标相对于容器左上角的坐标
         const mouseX = clientX - rect.left;
@@ -149,7 +146,7 @@ const handleCanvasWheel = throttle((event: WheelEvent) => {
         // 核心数学公式：确保以鼠标为中心缩放
         // (mouseX - oldTx) / oldScale = worldX = (mouseX - newTx) / newScale
         // 推导得: newTx = mouseX - (mouseX - oldTx) * (newScale / oldScale)
-        
+
         const scaleRatio = newScale / transformRef.value.scale;
         const newX = mouseX - (mouseX - transformRef.value.x) * scaleRatio;
         const newY = mouseY - (mouseY - transformRef.value.y) * scaleRatio;
@@ -167,7 +164,8 @@ const handleCanvasWheel = throttle((event: WheelEvent) => {
 // 键盘快捷键 (复位功能)
 const handleKeyDown = (event: KeyboardEvent) => {
     if (event.code === 'Space' && !event.repeat) {
-         if (containerRef.value) containerRef.value.style.cursor = 'grab';
+        if (containerRef.value) containerRef.value.style.cursor = 'grab';
+        isDragging.value = true;
     }
     if (event.code === 'KeyR' && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
@@ -175,7 +173,11 @@ const handleKeyDown = (event: KeyboardEvent) => {
     }
 };
 const handleKeyUp = (e: KeyboardEvent) => {
-    if (e.code === 'Space' && containerRef.value) containerRef.value.style.cursor = 'default';
+    if (e.code === 'Space' && containerRef.value) {
+        containerRef.value.style.cursor = 'default';
+        isDragging.value = false;
+    }
+
 }
 
 onMounted(() => {
@@ -196,15 +198,16 @@ onUnmounted(() => {
     position: relative;
     background: #f8f9fa;
     /* 禁止容器本身的滚动，完全接管滚轮事件 */
-    touch-action: none; 
+    touch-action: none;
 }
 
 .grid-bg {
-    pointer-events: none; /* 网格不阻挡鼠标 */
+    pointer-events: none;
+    /* 网格不阻挡鼠标 */
 }
 
 .canvas {
     /* z-index 确保内容在网格之上 */
-    z-index: 1; 
+    z-index: 1;
 }
 </style>
