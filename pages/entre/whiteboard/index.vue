@@ -1,7 +1,5 @@
 <template>
     <div class="canvas-container" ref="containerRef" @wheel="handleCanvasWheel" @mousedown="dragCanvas">
-
-    <canvas id="canvas" class="canvas"></canvas>
         <div class="grid-bg" :style="gridStyle"></div>
         <div ref="canvasRef" class="canvas" :style="canvasStyle">
             <div v-for="(page, index) in pages" :key="index"
@@ -18,8 +16,10 @@
                 <p class="text-gray-600">x: {{ page.rect.x }}, y: {{ page.rect.y }}</p>
             </div>
         </div>
+        <canvas id="canvas" class="canvas"></canvas>
 
-        <div class="fixed bottom-4 right-4 bg-black/70 text-white p-2 rounded text-xs flex items-center justify-center gap-2">
+        <div
+            class="fixed bottom-4 right-4 bg-black/70 text-white p-2 rounded text-xs flex items-center justify-center gap-2">
             Scale: {{ transformRef.scale.toFixed(2) }} | X: {{ transformRef.x.toFixed(0) }} | Y:
             {{ transformRef.y.toFixed(0) }}
             <!-- 是否开启辅助线 -->
@@ -89,7 +89,7 @@ definePageMeta({
 
 import { ref, computed, onMounted, onUnmounted, type CSSProperties } from 'vue';
 import { throttle } from 'lodash-es';
-import { Drawer } from '~/utils/canvasExtend/drawer-ui';
+import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 
 // 定义简单类型以避免导入错误
 interface Rect { x: number; y: number; width: number; height: number; }
@@ -426,16 +426,98 @@ const extractMinimap = () => {
 const drawer = ref<Drawer>()
 
 const initCanvas = () => {
-  const canvas = document.getElementById('canvas') as HTMLCanvasElement
-  canvas.width = window.innerWidth - 20
-  canvas.height = window.innerHeight - 20
-  drawer.value = new Drawer({ view: canvas })
+    const canvas = document.getElementById('canvas') as HTMLCanvasElement
+    canvas.width = window.innerWidth - 20
+    canvas.height = window.innerHeight - 20
+    drawer.value = new Drawer({ view: canvas })
 }
+
+type AreaPoint = {
+    startX: number
+    startY: number
+    endX: number
+    endY: number
+}
+const areaPoint = reactive<AreaPoint>({
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0
+})
+
+// 是否开始获取坐标
+const startMove = ref(false)
+
+const mouseDown = (e: MouseEvent) => {
+    if (isDragging.value) return;
+    startMove.value = true
+    const { x, y } = e
+    areaPoint.startX = x
+    areaPoint.startY = y
+}
+const mouseMove = (e: MouseEvent) => {
+    if (isDragging.value) return;
+    if (startMove.value) {
+        const { x, y } = e
+        areaPoint.endX = x
+        areaPoint.endY = y
+
+        drawer.value?.clear()
+
+        const { startX, startY, endX, endY } = areaPoint
+        const rect = new Rectutils(
+            { x: startX, y: startY, width: endX - startX, height: endY - startY, isFill: true,color: 'rgba(50, 205, 121, 0.3)' },
+            'rect'
+        )
+
+        drawer.value?.add(rect)
+    }
+}
+const mouseUp = (e: MouseEvent) => {
+    if (isDragging.value) return;
+    const { screenX, screenY } = e
+    areaPoint.endX = screenX
+    areaPoint.endY = screenY
+    startMove.value = false
+    drawer.value?.clear()
+}
+
+
+type RectInfo = {
+    id: number
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
+const rectInfoList = ref<RectInfo[]>([])
+
+const getAllDomPoint = () => {
+    // const getAllDom = document.querySelector('.rect-wrapper')!.children
+    // for (const key of getAllDom) {
+    //     const { x, y, width, height } = key.getBoundingClientRect()
+    //     rectInfoList.value.push({
+    //         id: Number((key as HTMLElement).dataset.id),
+    //         x,
+    //         y,
+    //         width,
+    //         height
+    //     })
+    // }
+}
+
+
+
 
 onMounted(() => {
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
     initCanvas()
+    window.addEventListener('mousedown', mouseDown)
+    window.addEventListener('mousemove', mouseMove)
+    window.addEventListener('mouseup', mouseUp)
+    getAllDomPoint()
     // 延迟加载小地图，确保DOM完全加载
     setTimeout(() => {
         extractMinimap();
@@ -486,5 +568,13 @@ onUnmounted(() => {
     width: 100%;
     height: 100%;
     background: white;
+}
+
+.canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    user-select: none;
+    pointer-events: none;
 }
 </style>

@@ -55,7 +55,7 @@ class Drawer {
 
   drawRect(info: Info) {
     const {
-      options: { isFill = true },
+      options: { isFill = true, color = '#32cd79' }, // 添加color参数，默认值保持向后兼容
       path = new Path2D(),
       tag,
       params,
@@ -63,10 +63,10 @@ class Drawer {
     } = info;
     this.path.addPath(path);
     if (isFill) {
-      this.ctx.fillStyle = '#32cd79';
+      this.ctx.fillStyle = color; // 使用传入的颜色参数
       this.ctx.fill(this.path);
     } else {
-      this.ctx.strokeStyle = '#32cd79';
+      this.ctx.strokeStyle = color; // 使用传入的颜色参数
       this.ctx.stroke(this.path);
     }
 

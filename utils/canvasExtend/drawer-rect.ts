@@ -8,12 +8,14 @@ type Options = {
   isFill?: boolean;
   color?: string;
 };
+
 export default class Rect {
   options: Options;
   path: Path2D;
   tag: string;
   params: any;
   clickCallBack: ((val: any) => void) | undefined;
+  
   constructor(options: Options, params: any) {
     this.options = options;
     this.path = new Path2D();
@@ -32,6 +34,7 @@ export default class Rect {
     path.rect(x, y, width, height);
     return path;
   }
+  
 
   on(category: string, clickCallBack: (val: any) => void) {
     if (category === 'click') {
