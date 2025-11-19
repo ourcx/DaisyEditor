@@ -193,7 +193,6 @@ const toggleGuides = () => {
 }
 const dragCanvas = (e: MouseEvent) => {
     if (e.button !== 0) return;
-
     //增加空格判断
     startX.value = e.clientX;
     startY.value = e.clientY;
@@ -517,7 +516,13 @@ const getAllDomPoint = () => {
  */
 const computedIsSelected = (areaPoint: AreaPoint, rectInfo: RectInfo) => {
     const { startX, startY, endX, endY } = areaPoint;
-    const { x, y, width, height } = rectInfo;
+    console.log('areaPoint', startX, startY, endX, endY);
+    let { x, y, width, height } = rectInfo;
+    x = x + transformRef.value.x
+    y = y + transformRef.value.y
+    width = width * transformRef.value.scale;
+    height = height * transformRef.value.scale;
+    // 计算最终的框选位置，要考虑画布的偏移量，然后还有比例
     const finalStartX = startX > endX ? endX : startX;
     const finalStartY = startY > endY ? endY : startY;
     const finalEndX = startX > endX ? startX : endX;
