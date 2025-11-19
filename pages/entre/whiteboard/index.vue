@@ -2,15 +2,19 @@
     <div class="canvas-container" ref="containerRef" @wheel="handleCanvasWheel" @mousedown="dragCanvas">
         <div class="grid-bg" :style="gridStyle"></div>
         <div ref="canvasRef" class="canvas" :style="canvasStyle">
-            <div v-for="(page, index) in pages" :key="index"
-                class="absolute bg-white rounded-lg shadow-lg p-4 border border-gray-200 cursor-pointer select-none"
+            <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`"
+                class="absolute bg-white rounded-lg shadow-lg p-4 border-2 cursor-pointer select-none transition-all duration-200"
                 :style="{
                     top: page.rect.y + 'px',
                     left: page.rect.x + 'px',
                     width: page.rect.width + 'px',
                     height: page.rect.height + 'px',
                     background: page.background,
-                    border: `${page.borderWidth}px solid ${page.borderColor}`,
+                    borderWidth: page.borderWidth + 'px',
+                    borderColor: highRectList.has(`id-key-${page.id}`) ? '#10b981' : page.borderColor,
+                    boxShadow: highRectList.has(`id-key-${page.id}`)
+                        ? '0 0 0 3px rgba(16, 185, 129, 0.3), 0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        : '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                 }">
                 <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ page.type }}</h3>
                 <p class="text-gray-600">x: {{ page.rect.x }}, y: {{ page.rect.y }}</p>
@@ -93,16 +97,16 @@ import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 
 // 定义简单类型以避免导入错误
 interface Rect { x: number; y: number; width: number; height: number; }
-interface WhithBoardProps { rect: Rect; type: string; background: string; borderWidth: number; borderColor: string; }
+interface WhithBoardProps { rect: Rect; type: string; background: string; borderWidth: number; borderColor: string; id: number; }
 
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
 
 // 示例数据
 const pages = ref<WhithBoardProps[]>([
-    { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3' },
-    { rect: { x: 500, y: 200, width: 200, height: 150 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800' },
-    { rect: { x: -300, y: 400, width: 200, height: 150 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50' }
+    { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1 },
+    { rect: { x: 500, y: 200, width: 200, height: 150 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
+    { rect: { x: -300, y: 400, width: 200, height: 150 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
 ]);
 
 // 核心状态：画布的偏移量和缩放
@@ -427,8 +431,8 @@ const drawer = ref<Drawer>()
 
 const initCanvas = () => {
     const canvas = document.getElementById('canvas') as HTMLCanvasElement
-    canvas.width = window.innerWidth - 20
-    canvas.height = window.innerHeight - 20
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
     drawer.value = new Drawer({ view: canvas })
 }
 
@@ -450,28 +454,12 @@ const startMove = ref(false)
 
 const mouseDown = (e: MouseEvent) => {
     if (isDragging.value) return;
+    //x需要清空已经选中的元素
+    highRectList.value.clear()
     startMove.value = true
     const { x, y } = e
     areaPoint.startX = x
     areaPoint.startY = y
-}
-const mouseMove = (e: MouseEvent) => {
-    if (isDragging.value) return;
-    if (startMove.value) {
-        const { x, y } = e
-        areaPoint.endX = x
-        areaPoint.endY = y
-
-        drawer.value?.clear()
-
-        const { startX, startY, endX, endY } = areaPoint
-        const rect = new Rectutils(
-            { x: startX, y: startY, width: endX - startX, height: endY - startY, isFill: true,color: 'rgba(50, 205, 121, 0.3)' },
-            'rect'
-        )
-
-        drawer.value?.add(rect)
-    }
 }
 const mouseUp = (e: MouseEvent) => {
     if (isDragging.value) return;
@@ -484,15 +472,17 @@ const mouseUp = (e: MouseEvent) => {
 
 
 type RectInfo = {
-    id: number
+    id: string
     x: number
     y: number
     width: number
     height: number
 }
 
-const rectInfoList = ref<RectInfo[]>([])
-
+// const rectInfoList = ref<RectInfo[]>([])
+const rectInfoList = ref<Map<string, RectInfo>>(new Map());
+const CanvasPages = ref<HTMLCanvasElement | null>(null)
+const highRectList = ref<Set<string>>(new Set());
 const getAllDomPoint = () => {
     // const getAllDom = document.querySelector('.rect-wrapper')!.children
     // for (const key of getAllDom) {
@@ -505,8 +495,128 @@ const getAllDomPoint = () => {
     //         height
     //     })
     // }
+    if (!canvasRef.value) return
+    for (const key of canvasRef.value.children) {
+        const id = key.getAttribute('data-id') || ''
+        const { x, y, width, height } = key.getBoundingClientRect()
+        rectInfoList.value.set(id, {
+            id: (key as HTMLElement).dataset.id || '',
+            x,
+            y,
+            width,
+            height,
+        })
+    }
+    //收集项目的元素
 }
 
+/**
+ * 判断框选位置是否可以选中
+ * @param areaPoint
+ * @param rectInfo
+ */
+const computedIsSelected = (areaPoint: AreaPoint, rectInfo: RectInfo) => {
+    const { startX, startY, endX, endY } = areaPoint;
+    const { x, y, width, height } = rectInfo;
+    const finalStartX = startX > endX ? endX : startX;
+    const finalStartY = startY > endY ? endY : startY;
+    const finalEndX = startX > endX ? startX : endX;
+    const finalEndY = startY > endY ? startY : endY;
+
+    const rectPointTopLeft = {
+        x,
+        y,
+    };
+    const rectPointTopRight = {
+        x: x + width,
+        y,
+    };
+    const rectPointBottomLeft = {
+        x,
+        y: y + height,
+    };
+    const rectPointBottomRight = {
+        x: x + width,
+        y: y + height,
+    };
+    return (
+        (rectPointTopLeft.x >= finalStartX &&
+            rectPointTopLeft.x <= finalEndX &&
+            rectPointTopLeft.y >= finalStartY &&
+            rectPointTopLeft.y <= finalEndY) ||
+        (rectPointTopRight.x >= finalStartX &&
+            rectPointTopRight.x <= finalEndX &&
+            rectPointTopRight.y >= finalStartY &&
+            rectPointTopRight.y <= finalEndY) ||
+        (rectPointBottomLeft.x >= finalStartX &&
+            rectPointBottomLeft.x <= finalEndX &&
+            rectPointBottomLeft.y >= finalStartY &&
+            rectPointBottomLeft.y <= finalEndY) ||
+        (rectPointBottomRight.x >= finalStartX &&
+            rectPointBottomRight.x <= finalEndX &&
+            rectPointBottomRight.y >= finalStartY &&
+            rectPointBottomRight.y <= finalEndY) ||
+        (rectPointTopLeft.x <= finalStartX &&
+            rectPointTopRight.x >= finalStartX &&
+            rectPointTopLeft.y <= finalStartY &&
+            rectPointBottomLeft.y >= finalStartY) ||
+        (rectPointTopLeft.x <= finalEndX &&
+            rectPointTopRight.x >= finalEndX &&
+            rectPointTopLeft.y <= finalEndY &&
+            rectPointBottomLeft.y >= finalEndY) ||
+        (rectPointTopLeft.x <= finalStartX &&
+            rectPointTopRight.x >= finalStartX &&
+            rectPointTopLeft.x <= finalEndX &&
+            rectPointTopRight.x >= finalEndX &&
+            rectPointTopLeft.y >= finalStartY &&
+            rectPointBottomLeft.y <= finalEndY) ||
+        (rectPointTopLeft.y <= finalStartY &&
+            rectPointBottomLeft.y >= finalStartY &&
+            rectPointTopLeft.y <= finalEndY &&
+            rectPointBottomLeft.y >= finalEndY &&
+            rectPointTopLeft.x >= finalStartX &&
+            rectPointBottomRight.x <= finalEndX)
+    );
+};
+
+const mouseMove = (e: MouseEvent) => {
+    if (isDragging.value) return;
+    if (startMove.value) {
+        const { x, y } = e
+        areaPoint.endX = x
+        areaPoint.endY = y
+
+        drawer.value?.clear()
+
+        const { startX, startY, endX, endY } = areaPoint
+        const rect = new Rectutils(
+            { x: startX, y: startY, width: endX - startX, height: endY - startY, isFill: true, color: 'rgba(50, 205, 121, 0.3)' },
+            'rect'
+        )
+
+        drawer.value?.add(rect)
+    }
+
+    if (startMove.value) {
+        // 边界条件检查
+        if (!rectInfoList.value || !highRectList.value) return;
+
+        // 使用Set优化查找性能
+        const existingIds = new Set(highRectList.value);
+
+        rectInfoList.value.forEach((item) => {
+            const { id } = item;
+            if (computedIsSelected(areaPoint, item)) {
+                if (!existingIds.has(id)) {
+                    highRectList.value.add(
+                        id
+                    );
+                    existingIds.add(id); // 同步更新Set
+                }
+            }
+        });
+    }
+}
 
 
 
