@@ -1,5 +1,7 @@
 <template>
     <div class="canvas-container" ref="containerRef" @wheel="handleCanvasWheel" @mousedown="dragCanvas">
+
+    <canvas id="canvas" class="canvas"></canvas>
         <div class="grid-bg" :style="gridStyle"></div>
         <div ref="canvasRef" class="canvas" :style="canvasStyle">
             <div v-for="(page, index) in pages" :key="index"
@@ -87,6 +89,7 @@ definePageMeta({
 
 import { ref, computed, onMounted, onUnmounted, type CSSProperties } from 'vue';
 import { throttle } from 'lodash-es';
+import { Drawer } from '~/utils/canvasExtend/drawer-ui';
 
 // 定义简单类型以避免导入错误
 interface Rect { x: number; y: number; width: number; height: number; }
@@ -420,11 +423,19 @@ const extractMinimap = () => {
     // 设置 iframe src
     targetIframe.value.src = url;
 }
+const drawer = ref<Drawer>()
+
+const initCanvas = () => {
+  const canvas = document.getElementById('canvas') as HTMLCanvasElement
+  canvas.width = window.innerWidth - 20
+  canvas.height = window.innerHeight - 20
+  drawer.value = new Drawer({ view: canvas })
+}
 
 onMounted(() => {
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-
+    initCanvas()
     // 延迟加载小地图，确保DOM完全加载
     setTimeout(() => {
         extractMinimap();

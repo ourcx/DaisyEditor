@@ -28,7 +28,7 @@ echo Commit successful.
 
 :: 推送到远程
 echo Pushing to remote...
-git push xh master
+git push xh main
 if errorlevel 1 (
     echo Error: git push failed!
     pause
