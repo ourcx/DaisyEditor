@@ -2,7 +2,7 @@
 import Aura from "@primevue/themes/aura";
 import mypreset from "./plugin/myPreset";
 export default defineNuxtConfig({
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   pages: true,
   modules: ["@vueuse/nuxt", "@pinia/nuxt", "@primevue/nuxt-module"],
   app: {

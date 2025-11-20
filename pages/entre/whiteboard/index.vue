@@ -94,6 +94,7 @@ definePageMeta({
 import { ref, computed, onMounted, onUnmounted, type CSSProperties } from 'vue';
 import { throttle } from 'lodash-es';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
+import StorageIndexDB from '~/utils/storage';
 
 // 定义简单类型以避免导入错误
 interface Rect { x: number; y: number; width: number; height: number; }
@@ -104,9 +105,9 @@ const canvasRef = ref<HTMLElement | null>(null);
 
 // 示例数据
 const pages = ref<WhithBoardProps[]>([
-    { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1, },
-    { rect: { x: 500, y: 200, width: 200, height: 150 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
-    { rect: { x: -300, y: 400, width: 200, height: 150 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
+    // { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1, },
+    // { rect: { x: 500, y: 200, width: 200, height: 150 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
+    // { rect: { x: -300, y: 400, width: 200, height: 150 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
 ]);
 
 // 核心状态：画布的偏移量和缩放
@@ -642,12 +643,13 @@ const pasteElement = () => {
     }, 100);
     //刷新小地图
     refreshMinimap();
+    // 保存数据
+    storageIndexDB.saveData(pages.value, "whiteboard-pages");
 }
 
 
 //监听ctrl c和 ctrl v事件
 const handleKeyDownCtrlCV = (e: KeyboardEvent) => {
-    console.log('按下了ctrl+c或者ctrl+v', e);
     if (e.ctrlKey && e.key === 'c') {
         rectInfoList.value.forEach((item) => {
             if (highRectList.value.has(item.id)) {
@@ -679,6 +681,12 @@ onMounted(() => {
     setTimeout(() => {
         extractMinimap();
     }, 100);
+
+    //数据读取
+    storageIndexDB.getData("whiteboard-pages").then((data) => {
+        console.log("读取到的数据:", data);
+        pages.value = data;
+    })
 });
 
 onUnmounted(() => {
@@ -687,6 +695,8 @@ onUnmounted(() => {
     if (targetIframe.value && targetIframe.value.src.startsWith('blob:')) {
         URL.revokeObjectURL(targetIframe.value.src);
     }
+    //数据保存
+    storageIndexDB.saveData(pages.value, "whiteboard-pages");
 });
 </script>
 
