@@ -1,8 +1,8 @@
 <template>
-    <div class="canvas-container" ref="containerRef" @wheel="handleCanvasWheel" @mousedown="dragCanvas">
+    <div class="canvas-container" ref="containerRef">
         <div class="grid-bg" :style="gridStyle"></div>
         <div ref="canvasRef" class="canvas" :style="canvasStyle">
-            <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" @click="clikePagesItem"
+            <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" @click="clickPageItem"
                 class="absolute bg-white rounded-lg shadow-lg p-4 border-2 cursor-pointer select-none transition-all duration-200"
                 :style="{
                     top: page.rect.y + 'px',
@@ -15,8 +15,8 @@
                     boxShadow: highRectList.has(`id-key-${page.id}`)
                         ? '0 0 0 3px rgba(16, 185, 129, 0.3), 0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                         : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                    pointerEvents: 'auto', // 确保可点击
-                    zIndex: 10 // 确保在正确层级
+                    pointerEvents: 'auto',
+                    zIndex: 10
                 }">
                 <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ page.type }}</h3>
                 <p class="text-gray-600">x: {{ page.rect.x }}, y: {{ page.rect.y }}</p>
@@ -28,11 +28,10 @@
             class="fixed bottom-4 right-4 bg-black/70 text-white p-2 rounded text-xs flex items-center justify-center gap-2">
             Scale: {{ transformRef.scale.toFixed(2) }} | X: {{ transformRef.x.toFixed(0) }} | Y:
             {{ transformRef.y.toFixed(0) }}
-            <!-- 是否开启辅助线 -->
             <Button @click="toggleGuides" class="">辅助线开关</Button>
         </div>
 
-        <!-- 修复小地图区域 -->
+        <!-- 小地图区域 -->
         <div v-if="isMinimapVisible"
             class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96">
             <div class="flex justify-between items-center mb-2">
@@ -93,34 +92,64 @@ definePageMeta({
     layout: false,
 });
 
-import { ref, computed, onMounted, onUnmounted, type CSSProperties } from 'vue';
+import { ref, computed, onMounted, nextTick, reactive, type CSSProperties } from 'vue';
 import { throttle } from 'lodash-es';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
 import type { AreaPoint, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
+import { useEventManager } from '~/server/DomEvent';
 
+// DOM 引用
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
+const targetIframe = ref<HTMLIFrameElement | null>(null);
 
-// 示例数据
+// 状态管理
+const transformRef = ref({ x: 0, y: 0, scale: 1 });
 const pages = ref<WhithBoardProps[]>([
     { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1, },
     { rect: { x: 500, y: 200, width: 200, height: 150 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
     { rect: { x: -300, y: 400, width: 200, height: 150 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
 ]);
 
-// 核心状态：画布的偏移量和缩放
-const transformRef = ref({ x: 0, y: 0, scale: 1 });
-const guide = `
-            linear-gradient(to right, #ddd 1px, transparent 1px),
-            linear-gradient(to bottom, #ddd 1px, transparent 1px)
-        `;
-
 const isGuide = ref(true);
-// 小地图缩放
+const isMinimapVisible = ref(true);
 const minimapZoom = ref(0.1);
+const drawer = ref<Drawer>();
+const rectInfoList = ref<Map<string, RectInfo>>(new Map());
+const highRectList = ref<Set<string>>(new Set());
 
-// 计算视口指示器样式
+// 交互状态
+const interactionState = reactive({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    startTranslateX: 0,
+    startTranslateY: 0,
+    isSelecting: false,
+    areaPoint: {
+        startX: 0,
+        startY: 0,
+        endX: 0,
+        endY: 0
+    } as AreaPoint
+});
+
+// 键盘状态
+const keyboardState = reactive({
+    isSpacePressed: false,
+    ctrlPressed: false
+});
+
+// 存储实例
+const storageIndexDB = new StorageIndexDB();
+
+// 计算属性
+const guide = `
+    linear-gradient(to right, #ddd 1px, transparent 1px),
+    linear-gradient(to bottom, #ddd 1px, transparent 1px)
+`;
+
 const viewportIndicatorStyle = computed(() => {
     if (!containerRef.value) return {};
 
@@ -128,11 +157,9 @@ const viewportIndicatorStyle = computed(() => {
     const viewportWidth = containerRect.width / transformRef.value.scale;
     const viewportHeight = containerRect.height / transformRef.value.scale;
 
-    // 计算视口在原始画布中的位置
     const viewportX = -transformRef.value.x / transformRef.value.scale;
     const viewportY = -transformRef.value.y / transformRef.value.scale;
 
-    // 转换为小地图坐标
     const indicatorX = viewportX * minimapZoom.value;
     const indicatorY = viewportY * minimapZoom.value;
     const indicatorWidth = viewportWidth * minimapZoom.value;
@@ -146,223 +173,459 @@ const viewportIndicatorStyle = computed(() => {
     };
 });
 
-// --- 核心改动 1: 内容层样式 ---
-// 移除 width/height 的动态计算，只需负责 Transform
 const canvasStyle = computed<CSSProperties>(() => ({
     transform: `translate(${transformRef.value.x}px, ${transformRef.value.y}px) scale(${transformRef.value.scale})`,
-    transformOrigin: '0 0', // 以左上角为原点
-    width: '0px',  // 关键：不需要实际尺寸
-    height: '0px', // 关键：不需要实际尺寸
+    transformOrigin: '0 0',
+    width: '0px',
+    height: '0px',
     position: 'absolute',
     top: '0',
     left: '0',
     overflow: 'visible'
 }));
 
-// --- 核心改动 2: 网格背景样式 ---
-// 背景不动，通过 background-position 跟着 transform 变，制造移动错觉
 const gridStyle = computed<CSSProperties>(() => {
     const { x, y, scale } = transformRef.value;
-    const gridSize = 20 * scale; // 网格大小随缩放变化
-    const guideText = isGuide.value ? guide : 'none'
+    const gridSize = 20 * scale;
+    const guideText = isGuide.value ? guide : 'none';
     return {
         position: 'absolute',
-        inset: 0, // 铺满父容器
+        inset: 0,
         zIndex: 0,
-        // 关键点：背景位置 = 偏移量
         backgroundPosition: `${x}px ${y}px`,
         backgroundSize: `${gridSize}px ${gridSize}px`,
         backgroundImage: guideText,
-        pointerEvents: 'none' // 确保鼠标事件穿透到下层的 canvas
+        pointerEvents: 'none'
     };
 });
 
+// 事件处理函数
+const eventHandlers = {
+    // 画布拖拽
+    handleCanvasDragStart(e: MouseEvent) {
+        if (e.button !== 0) return;
+        if (!keyboardState.isSpacePressed) return
+        interactionState.isDragging = true;
+        interactionState.startX = e.clientX;
+        interactionState.startY = e.clientY;
+        interactionState.startTranslateX = transformRef.value.x;
+        interactionState.startTranslateY = transformRef.value.y;
 
-// --- 拖拽逻辑 ---
-const isDragging = ref(false);
-const startX = ref(0);
-const startY = ref(0);
-const startTranslateX = ref(0);
-const startTranslateY = ref(0);
+        if (containerRef.value) {
+            containerRef.value.style.cursor = 'grabbing';
+        }
+    },
 
+    handleCanvasDrag(e: MouseEvent) {
+        if (!interactionState.isDragging) return;
 
-const toggleGuides = () => {
-    //是否显示参考线
-    isGuide.value = !isGuide.value;
-    console.log('isGuide', isGuide.value, gridStyle.value);
-}
-const dragCanvas = (e: MouseEvent) => {
-    if (e.button !== 0) return;
-    //增加空格判断
-    startX.value = e.clientX;
-    startY.value = e.clientY;
-    startTranslateX.value = transformRef.value.x;
-    startTranslateY.value = transformRef.value.y;
+        const offsetX = e.clientX - interactionState.startX;
+        const offsetY = e.clientY - interactionState.startY;
 
-    const mouseMove = throttle((e: MouseEvent) => {
-        if (!isDragging.value) return;
-        if (containerRef.value) containerRef.value.style.cursor = 'grabbing';
-        const offsetX = e.clientX - startX.value;
-        const offsetY = e.clientY - startY.value;
         transformRef.value = {
             ...transformRef.value,
-            x: startTranslateX.value + offsetX,
-            y: startTranslateY.value + offsetY
+            x: interactionState.startTranslateX + offsetX,
+            y: interactionState.startTranslateY + offsetY
         };
-    }, 16);
+    },
 
-    const mouseUp = () => {
-        if (containerRef.value) containerRef.value.style.cursor = 'grab';
-        document.removeEventListener('mousemove', mouseMove);
-        document.removeEventListener('mouseup', mouseUp);
-    };
+    handleCanvasDragEnd() {
+        interactionState.isDragging = false;
+        if (containerRef.value) {
+            containerRef.value.style.cursor = keyboardState.isSpacePressed ? 'grab' : 'default';
+        }
+    },
 
-    document.addEventListener('mousemove', mouseMove);
-    document.addEventListener('mouseup', mouseUp);
-};
-
-// --- 滚轮缩放逻辑 (优化版) ---
-const handleCanvasWheel = throttle((event: WheelEvent) => {
-    event.preventDefault();
-    const { deltaY, clientX, clientY, ctrlKey, metaKey } = event;
-
-    // 缩放 (Ctrl + 滚轮 或 触控板捏合)
-    if (ctrlKey || metaKey) {
-        if (!containerRef.value) return;
-
-        const rect = containerRef.value.getBoundingClientRect();
-        // 鼠标相对于容器左上角的坐标
-        const mouseX = clientX - rect.left;
-        const mouseY = clientY - rect.top;
-
-        const zoomIntensity = 0.1;
-        const wheel = deltaY < 0 ? 1 : -1;
-        const newScale = Math.max(0.1, Math.min(5, transformRef.value.scale * (1 + wheel * zoomIntensity)));
-
-        // 核心数学公式：确保以鼠标为中心缩放
-        // (mouseX - oldTx) / oldScale = worldX = (mouseX - newTx) / newScale
-        // 推导得: newTx = mouseX - (mouseX - oldTx) * (newScale / oldScale)
-
-        const scaleRatio = newScale / transformRef.value.scale;
-        const newX = mouseX - (mouseX - transformRef.value.x) * scaleRatio;
-        const newY = mouseY - (mouseY - transformRef.value.y) * scaleRatio;
-
-        transformRef.value = { x: newX, y: newY, scale: newScale };
-    } else {
-        // 移动 (普通滚轮)
-        // 许多设计软件 (Figma/Miro) 滚轮默认是垂直移动，Shift+滚轮是水平移动
-        // 也有的是滚轮缩放，按住空格移动。这里保留你的位移逻辑。
-        transformRef.value.x -= event.deltaX; // 支持触摸板的双指水平滑动
-        transformRef.value.y -= event.deltaY;
-    }
-}, 16);
-
-// 键盘快捷键 (复位功能)
-const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.code === 'Space' && !event.repeat) {
-        if (containerRef.value) containerRef.value.style.cursor = 'grab';
-        isDragging.value = true;
-    }
-    if (event.code === 'KeyR' && (event.ctrlKey || event.metaKey)) {
+    // 滚轮缩放
+    handleCanvasWheel(event: WheelEvent) {
         event.preventDefault();
-        transformRef.value = { x: 0, y: 0, scale: 1 };
+        const { deltaY, clientX, clientY, ctrlKey, metaKey } = event;
+
+        if (ctrlKey || metaKey) {
+            if (!containerRef.value) return;
+
+            const rect = containerRef.value.getBoundingClientRect();
+            const mouseX = clientX - rect.left;
+            const mouseY = clientY - rect.top;
+
+            const zoomIntensity = 0.1;
+            const wheel = deltaY < 0 ? 1 : -1;
+            const newScale = Math.max(0.1, Math.min(5, transformRef.value.scale * (1 + wheel * zoomIntensity)));
+
+            const scaleRatio = newScale / transformRef.value.scale;
+            const newX = mouseX - (mouseX - transformRef.value.x) * scaleRatio;
+            const newY = mouseY - (mouseY - transformRef.value.y) * scaleRatio;
+
+            transformRef.value = { x: newX, y: newY, scale: newScale };
+        } else {
+            transformRef.value.x -= event.deltaX;
+            transformRef.value.y -= event.deltaY;
+        }
+    },
+
+    // 键盘事件
+    handleKeyDown(e: KeyboardEvent) {
+        switch (e.code) {
+            case 'Space':
+                if (!e.repeat) {
+                    keyboardState.isSpacePressed = true;
+                    if (containerRef.value) containerRef.value.style.cursor = 'grab';
+                }
+                break;
+            case 'KeyR':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    transformRef.value = { x: 0, y: 0, scale: 1 };
+                }
+                break;
+            case 'ControlLeft':
+            case 'ControlRight':
+                keyboardState.ctrlPressed = true;
+                break;
+        }
+
+        // 复制粘贴删除
+        if (keyboardState.ctrlPressed) {
+            switch (e.key) {
+                case 'c':
+                    console.log('复制元素');
+                    break;
+                case 'v':
+                    e.preventDefault();
+                    pasteElement();
+                    break;
+            }
+        }
+
+        if (e.key === 'Delete') {
+            deletePageItem();
+        }
+    },
+
+    handleKeyUp(e: KeyboardEvent) {
+        switch (e.code) {
+            case 'Space':
+                keyboardState.isSpacePressed = false;
+                if (containerRef.value) containerRef.value.style.cursor = 'default';
+                break;
+            case 'ControlLeft':
+            case 'ControlRight':
+                keyboardState.ctrlPressed = false;
+                break;
+        }
+    },
+
+    // 框选事件
+    handleSelectionStart(e: MouseEvent) {
+        if (interactionState.isDragging) return;
+
+        highRectList.value.clear();
+        interactionState.isSelecting = true;
+
+        const { clientX, clientY } = e;
+        interactionState.areaPoint.startX = clientX;
+        interactionState.areaPoint.startY = clientY;
+    },
+
+    handleSelectionMove(e: MouseEvent) {
+        if (interactionState.isDragging || !interactionState.isSelecting) return;
+
+        const { clientX, clientY } = e;
+        interactionState.areaPoint.endX = clientX;
+        interactionState.areaPoint.endY = clientY;
+
+        // 绘制选择框
+        drawer.value?.clear();
+        const { startX, startY, endX, endY } = interactionState.areaPoint;
+        const rect = new Rectutils(
+            {
+                x: startX,
+                y: startY,
+                width: endX - startX,
+                height: endY - startY,
+                isFill: true,
+                color: 'rgba(50, 205, 121, 0.3)'
+            },
+            'rect'
+        );
+        drawer.value?.add(rect);
+
+        // 计算选中元素
+        if (interactionState.isSelecting) {
+            rectInfoList.value.forEach((item) => {
+                if (computedIsSelected(interactionState.areaPoint, item)) {
+                    highRectList.value.add(item.id);
+                }
+            });
+        }
+    },
+
+    handleSelectionEnd() {
+        interactionState.isSelecting = false;
+        drawer.value?.clear();
+    },
+
+    // 小地图事件
+    handleMinimapClick(e: MouseEvent) {
+        if (!targetIframe.value || !targetIframe.value.contentDocument) return;
+
+        e.preventDefault();
+        const iframeDoc = targetIframe.value.contentDocument;
+        const rect = iframeDoc.documentElement.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        navigateToMinimapPosition(x, y);
+    },
+
+    handleMinimapHover() {
+        if (targetIframe.value && targetIframe.value.contentDocument) {
+            targetIframe.value.contentDocument.body.style.cursor = 'pointer';
+        }
     }
 };
-const handleKeyUp = (e: KeyboardEvent) => {
-    if (e.code === 'Space' && containerRef.value) {
-        containerRef.value.style.cursor = 'default';
-        isDragging.value = false;
+
+// 初始化事件管理器
+const eventManager = useEventManager();
+
+// 初始化所有事件
+const initializeEvents = () => {
+    if (!containerRef.value) return;
+
+    // 画布拖拽事件
+    eventManager.addEventListeners([
+        {
+            element: containerRef.value,
+            type: 'mousedown',
+            handler: eventHandlers.handleCanvasDragStart
+        },
+        {
+            element: document,
+            type: 'mousemove',
+            handler: eventHandlers.handleCanvasDrag
+        },
+        {
+            element: document,
+            type: 'mouseup',
+            handler: eventHandlers.handleCanvasDragEnd
+        }
+    ]);
+
+    // 滚轮事件（带节流）
+    eventManager.addThrottledEventListener(
+        containerRef.value,
+        'wheel',
+        eventHandlers.handleCanvasWheel,
+        16
+    );
+
+    // 键盘事件
+    eventManager.addEventListeners([
+        {
+            element: document,
+            type: 'keydown',
+            handler: eventHandlers.handleKeyDown
+        },
+        {
+            element: document,
+            type: 'keyup',
+            handler: eventHandlers.handleKeyUp
+        }
+    ]);
+
+    // 框选事件
+    eventManager.addEventListeners([
+        {
+            element: window,
+            type: 'mousedown',
+            handler: eventHandlers.handleSelectionStart
+        },
+        {
+            element: window,
+            type: 'mousemove',
+            handler: eventHandlers.handleSelectionMove
+        },
+        {
+            element: window,
+            type: 'mouseup',
+            handler: eventHandlers.handleSelectionEnd
+        }
+    ]);
+};
+
+// 工具函数
+const toggleGuides = () => {
+    isGuide.value = !isGuide.value;
+};
+
+const initCanvas = () => {
+    const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    drawer.value = new Drawer({ view: canvas });
+};
+
+const getAllDomPoint = () => {
+    nextTick(() => {
+        if (!canvasRef.value) return;
+        for (const key of canvasRef.value.children) {
+            const id = key.getAttribute('data-id') || '';
+            const { x, y, width, height } = key.getBoundingClientRect();
+            rectInfoList.value.set(id, {
+                id: (key as HTMLElement).dataset.id || '',
+                x,
+                y,
+                width,
+                height,
+            });
+        }
+        console.log('rectInfoList', rectInfoList.value);
+    });
+};
+
+const computedIsSelected = (areaPoint: AreaPoint, rectInfo: RectInfo) => {
+    const { startX, startY, endX, endY } = areaPoint;
+    let { x, y, width, height } = rectInfo;
+
+    x = x * transformRef.value.scale + transformRef.value.x;
+    y = y * transformRef.value.scale + transformRef.value.y;
+    width = width * transformRef.value.scale;
+    height = height * transformRef.value.scale;
+
+    const finalStartX = startX > endX ? endX : startX;
+    const finalStartY = startY > endY ? endY : startY;
+    const finalEndX = startX > endX ? startX : endX;
+    const finalEndY = startY > endY ? startY : endY;
+
+    const rectPointTopLeft = { x, y };
+    const rectPointTopRight = { x: x + width, y };
+    const rectPointBottomLeft = { x, y: y + height };
+    const rectPointBottomRight = { x: x + width, y: y + height };
+
+    return (
+        (rectPointTopLeft.x >= finalStartX && rectPointTopLeft.x <= finalEndX && rectPointTopLeft.y >= finalStartY && rectPointTopLeft.y <= finalEndY) ||
+        (rectPointTopRight.x >= finalStartX && rectPointTopRight.x <= finalEndX && rectPointTopRight.y >= finalStartY && rectPointTopRight.y <= finalEndY) ||
+        (rectPointBottomLeft.x >= finalStartX && rectPointBottomLeft.x <= finalEndX && rectPointBottomLeft.y >= finalStartY && rectPointBottomLeft.y <= finalEndY) ||
+        (rectPointBottomRight.x >= finalStartX && rectPointBottomRight.x <= finalEndX && rectPointBottomRight.y >= finalStartY && rectPointBottomRight.y <= finalEndY) ||
+        (rectPointTopLeft.x <= finalStartX && rectPointTopRight.x >= finalStartX && rectPointTopLeft.y <= finalStartY && rectPointBottomLeft.y >= finalStartY) ||
+        (rectPointTopLeft.x <= finalEndX && rectPointTopRight.x >= finalEndX && rectPointTopLeft.y <= finalEndY && rectPointBottomLeft.y >= finalEndY) ||
+        (rectPointTopLeft.x <= finalStartX && rectPointTopRight.x >= finalStartX && rectPointTopLeft.x <= finalEndX && rectPointTopRight.x >= finalEndX && rectPointTopLeft.y >= finalStartY && rectPointBottomLeft.y <= finalEndY) ||
+        (rectPointTopLeft.y <= finalStartY && rectPointBottomLeft.y >= finalStartY && rectPointTopLeft.y <= finalEndY && rectPointBottomLeft.y >= finalEndY && rectPointTopLeft.x >= finalStartX && rectPointBottomRight.x <= finalEndX)
+    );
+};
+
+const pasteElement = () => {
+    const newElements: WhithBoardProps[] = [];
+    pages.value.forEach((item) => {
+        if (highRectList.value.has(`id-key-${item.id}`)) {
+            const newId = Date.now() + Math.floor(Math.random() * 1000);
+            const newElement: WhithBoardProps = {
+                id: newId,
+                type: item.type,
+                rect: {
+                    x: item.rect.x + 20,
+                    y: item.rect.y + 20,
+                    width: item.rect.width,
+                    height: item.rect.height,
+                },
+                background: item.background,
+                borderWidth: item.borderWidth,
+                borderColor: item.borderColor,
+            };
+            newElements.push(newElement);
+            rectInfoList.value.set(`id-key-${newId}`, {
+                id: `id-key-${newId}`,
+                x: newElement.rect.x,
+                y: newElement.rect.y,
+                width: newElement.rect.width,
+                height: newElement.rect.height,
+            });
+        }
+    });
+    pages.value.push(...newElements);
+    refreshMinimap();
+    storageIndexDB.saveData(pages.value, "whiteboard-pages");
+};
+
+const clickPageItem = (e: MouseEvent) => {
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    const id = target.getAttribute('data-id') || '';
+    if (highRectList.value.has(id)) {
+        highRectList.value.delete(id);
+    } else {
+        highRectList.value.add(id);
     }
-}
+};
 
+const deletePageItem = () => {
+    const highRectKeys = new Set(Array.from(highRectList.value.keys()));
 
-const targetIframe = ref<HTMLIFrameElement | null>(null);
-const isMinimapVisible = ref(true);
+    pages.value = pages.value.filter((item) => {
+        return !highRectKeys.has(`id-key-${item.id}`);
+    });
 
-// 小地图缩放控制
+    highRectKeys.forEach((key) => {
+        if (rectInfoList.value.has(key)) {
+            rectInfoList.value.delete(key);
+        }
+    });
+    storageIndexDB.saveData(pages.value, "whiteboard-pages");
+};
+// 小地图功能
 const zoomInMinimap = () => {
     if (minimapZoom.value < 0.5) {
         minimapZoom.value += 0.05;
         refreshMinimap();
     }
-}
+};
 
 const zoomOutMinimap = () => {
     if (minimapZoom.value > 0.05) {
         minimapZoom.value -= 0.05;
         refreshMinimap();
     }
-}
+};
 
-// 刷新小地图
 const refreshMinimap = () => {
     extractMinimap();
-}
+};
 
-// 切换小地图显示
 const toggleMinimap = () => {
     isMinimapVisible.value = !isMinimapVisible.value;
-}
+};
 
-// 点击小地图导航到对应位置
 const navigateToMinimapPosition = (minimapX: number, minimapY: number) => {
     if (!containerRef.value) return;
 
     const containerRect = containerRef.value.getBoundingClientRect();
-
-    // 将小地图坐标转换为世界坐标
     const worldX = minimapX / minimapZoom.value;
     const worldY = minimapY / minimapZoom.value;
 
-    // 计算需要将世界坐标点移动到视口中心所需的变换
     const targetX = -worldX * transformRef.value.scale + containerRect.width / 2;
     const targetY = -worldY * transformRef.value.scale + containerRect.height / 2;
 
-    // 应用变换
     transformRef.value = {
         ...transformRef.value,
         x: targetX,
         y: targetY
     };
-}
+};
 
-// iframe 加载完成后的处理
 const onIframeLoad = () => {
     if (!targetIframe.value || !targetIframe.value.contentDocument) return;
 
-    // 添加点击事件监听器到 iframe
     const iframeDoc = targetIframe.value.contentDocument;
-    iframeDoc.addEventListener('click', (e) => {
-        e.preventDefault();
 
-        // 获取点击位置相对于 iframe 文档的坐标
-        const rect = iframeDoc.documentElement.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+    // 使用事件管理器绑定小地图事件
+    eventManager.addEventListener(iframeDoc, 'click', eventHandlers.handleMinimapClick);
+    eventManager.addEventListener(iframeDoc, 'mousemove', eventHandlers.handleMinimapHover);
+};
 
-        // 导航到对应位置
-        navigateToMinimapPosition(x, y);
-    });
-
-    // 添加鼠标悬停效果
-    iframeDoc.addEventListener('mousemove', (e) => {
-        const rect = iframeDoc.documentElement.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        // 可以在这里添加悬停效果，比如改变光标样式
-        iframeDoc.body.style.cursor = 'pointer';
-    });
-}
-
-// 提取网页的minimap
 const extractMinimap = () => {
     if (!targetIframe.value) return;
 
-    // 获取当前页面的HTML，但要排除小地图自身
     const originalHtml = document.documentElement.outerHTML;
-
-    // 创建优化后的HTML，添加小地图专用样式
     const optimizedHtml = `
 <!DOCTYPE html>
 <html>
@@ -370,7 +633,6 @@ const extractMinimap = () => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* 小地图专用样式 */
         body { 
             transform: scale(${minimapZoom.value}); 
             transform-origin: 0 0;
@@ -381,27 +643,22 @@ const extractMinimap = () => {
             background: #f8f9fa;
             cursor: pointer;
         }
-        /* 隐藏小地图自身 */
         .minimap { 
             display: none !important; 
         }
-        /* 隐藏状态显示 */
         .fixed.bottom-4.right-4 {
             display: none !important;
         }
-        /* 确保内容可见 */
         .canvas-container {
             overflow: visible !important;
         }
         .canvas {
             transform: none !important;
         }
-        /* 增强元素可见性 */
         .absolute {
             border: 1px solid rgba(0,0,0,0.2) !important;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         }
-        /* 添加悬停效果 */
         .absolute:hover {
             border-color: #3b82f6 !important;
             box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3) !important;
@@ -419,327 +676,47 @@ const extractMinimap = () => {
 </body>
 </html>`;
 
-    // 创建 Blob URL
     const blob = new Blob([optimizedHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-
-    // 设置 iframe src
     targetIframe.value.src = url;
-}
-const drawer = ref<Drawer>()
 
-const initCanvas = () => {
-    const canvas = document.getElementById('canvas') as HTMLCanvasElement
-    canvas.width = window.innerWidth
-    canvas.height = window.innerHeight
-    drawer.value = new Drawer({ view: canvas })
-}
-
-
-const areaPoint = reactive<AreaPoint>({
-    startX: 0,
-    startY: 0,
-    endX: 0,
-    endY: 0
-})
-
-// 是否开始获取坐标
-const startMove = ref(false)
-
-const mouseDown = (e: MouseEvent) => {
-    if (isDragging.value) return;
-    //x需要清空已经选中的元素
-    highRectList.value.clear()
-    startMove.value = true
-    const { x, y } = e
-    areaPoint.startX = x
-    areaPoint.startY = y
-}
-const mouseUp = (e: MouseEvent) => {
-    if (isDragging.value) return;
-    const { screenX, screenY } = e
-    areaPoint.endX = screenX
-    areaPoint.endY = screenY
-    startMove.value = false
-    drawer.value?.clear()
-}
-
-
-
-// const rectInfoList = ref<RectInfo[]>([])
-// 存储所有元素信息
-const rectInfoList = ref<Map<string, RectInfo>>(new Map());
-const CanvasPages = ref<HTMLCanvasElement | null>(null);
-// 存储被框选中的元素ID(也包括点击的信息)
-const highRectList = ref<Set<string>>(new Set());
-
-
-const getAllDomPoint = () => {
-    //没有收集到元素，等待dom加载完成
-    nextTick(() => {
-        if (!canvasRef.value) return
-        for (const key of canvasRef.value.children) {
-            const id = key.getAttribute('data-id') || ''
-            const { x, y, width, height } = key.getBoundingClientRect()
-            rectInfoList.value.set(id, {
-                id: (key as HTMLElement).dataset.id || '',
-                x,
-                y,
-                width,
-                height,
-            })
-        }
-        console.log('rectInfoList', rectInfoList.value);
-        //收集项目的元素
-    })
-}
-
-
-/**
- * 判断框选位置是否可以选中
- * @param areaPoint
- * @param rectInfo
- */
-const computedIsSelected = (areaPoint: AreaPoint, rectInfo: RectInfo) => {
-    const { startX, startY, endX, endY } = areaPoint;
-    let { x, y, width, height } = rectInfo;
-    x = x* (transformRef.value.scale) + transformRef.value.x 
-    y = y* (transformRef.value.scale) + transformRef.value.y
-    width = width * transformRef.value.scale;
-    height = height * transformRef.value.scale;
-    // 计算最终的框选位置，要考虑画布的偏移量，然后还有比例
-    console.log('computedIsSelected', areaPoint, rectInfo, transformRef.value);
-    console.log('computedIsSelected-adjusted', { x, y, width, height });
-    const finalStartX = startX > endX ? endX : startX;
-    const finalStartY = startY > endY ? endY : startY;
-    const finalEndX = startX > endX ? startX : endX;
-    const finalEndY = startY > endY ? startY : endY;
-
-    const rectPointTopLeft = {
-        x,
-        y,
-    };
-    const rectPointTopRight = {
-        x: x + width,
-        y,
-    };
-    const rectPointBottomLeft = {
-        x,
-        y: y + height,
-    };
-    const rectPointBottomRight = {
-        x: x + width,
-        y: y + height,
-    };
-    return (
-        (rectPointTopLeft.x >= finalStartX &&
-            rectPointTopLeft.x <= finalEndX &&
-            rectPointTopLeft.y >= finalStartY &&
-            rectPointTopLeft.y <= finalEndY) ||
-        (rectPointTopRight.x >= finalStartX &&
-            rectPointTopRight.x <= finalEndX &&
-            rectPointTopRight.y >= finalStartY &&
-            rectPointTopRight.y <= finalEndY) ||
-        (rectPointBottomLeft.x >= finalStartX &&
-            rectPointBottomLeft.x <= finalEndX &&
-            rectPointBottomLeft.y >= finalStartY &&
-            rectPointBottomLeft.y <= finalEndY) ||
-        (rectPointBottomRight.x >= finalStartX &&
-            rectPointBottomRight.x <= finalEndX &&
-            rectPointBottomRight.y >= finalStartY &&
-            rectPointBottomRight.y <= finalEndY) ||
-        (rectPointTopLeft.x <= finalStartX &&
-            rectPointTopRight.x >= finalStartX &&
-            rectPointTopLeft.y <= finalStartY &&
-            rectPointBottomLeft.y >= finalStartY) ||
-        (rectPointTopLeft.x <= finalEndX &&
-            rectPointTopRight.x >= finalEndX &&
-            rectPointTopLeft.y <= finalEndY &&
-            rectPointBottomLeft.y >= finalEndY) ||
-        (rectPointTopLeft.x <= finalStartX &&
-            rectPointTopRight.x >= finalStartX &&
-            rectPointTopLeft.x <= finalEndX &&
-            rectPointTopRight.x >= finalEndX &&
-            rectPointTopLeft.y >= finalStartY &&
-            rectPointBottomLeft.y <= finalEndY) ||
-        (rectPointTopLeft.y <= finalStartY &&
-            rectPointBottomLeft.y >= finalStartY &&
-            rectPointTopLeft.y <= finalEndY &&
-            rectPointBottomLeft.y >= finalEndY &&
-            rectPointTopLeft.x >= finalStartX &&
-            rectPointBottomRight.x <= finalEndX)
-    );
-};
-
-const mouseMove = (e: MouseEvent) => {
-    if (isDragging.value) return;
-    if (startMove.value) {
-        const { x, y } = e
-        areaPoint.endX = x
-        areaPoint.endY = y
-
-        drawer.value?.clear()
-
-        const { startX, startY, endX, endY } = areaPoint
-        const rect = new Rectutils(
-            { x: startX, y: startY, width: endX - startX, height: endY - startY, isFill: true, color: 'rgba(50, 205, 121, 0.3)' },
-            'rect'
-        )
-
-        drawer.value?.add(rect)
-    }
-
-    if (startMove.value) {
-        // 边界条件检查
-        if (!rectInfoList.value || !highRectList.value) return;
-
-        // 使用Set优化查找性能
-        const existingIds = new Set(highRectList.value);
-
-        rectInfoList.value.forEach((item) => {
-            const { id } = item;
-            if (computedIsSelected(areaPoint, item)) {
-                if (!existingIds.has(id)) {
-                    highRectList.value.add(
-                        id
-                    );
-                    existingIds.add(id); // 同步更新Set
-                }
-            }
-        });
-    }
-}
-const pasteElement = () => {
-    const newElements: WhithBoardProps[] = [];
-    pages.value.forEach((item) => {
-        if (highRectList.value.has(`id-key-${item.id}`)) {
-            const newId = Date.now() + Math.floor(Math.random() * 1000);
-            //新元素的坐标是鼠标坐标
-            const newElement: WhithBoardProps = {
-                id: newId,
-                type: item.type,
-                rect: {
-                    x: item.rect.x + 20,
-                    y: item.rect.y + 20,
-                    width: item.rect.width,
-                    height: item.rect.height,
-                },
-                background: item.background,
-                borderWidth: item.borderWidth,
-                borderColor: item.borderColor,
-            };
-            newElements.push(newElement);
-            //设置rectInfoList
-            rectInfoList.value.set(`id-key-${newId}`, {
-                id: `id-key-${newId}`,
-                x: newElement.rect.x,
-                y: newElement.rect.y,
-                width: newElement.rect.width,
-                height: newElement.rect.height,
-            });
+    // 添加清理函数
+    eventManager.addCleanup(() => {
+        if (targetIframe.value && targetIframe.value.src.startsWith('blob:')) {
+            URL.revokeObjectURL(targetIframe.value.src);
         }
     });
-    pages.value.push(...newElements);
-    // 更新坐标信息
-    // initCanvas();
-    // getAllDomPoint();
-    //刷新小地图
-    refreshMinimap();
-    // 保存数据
-    storageIndexDB.saveData(pages.value, "whiteboard-pages");
-}
+};
 
-
-//监听ctrl c和 ctrl v事件
-const handleKeyDownCtrlCV = (e: KeyboardEvent) => {
-    if (e.ctrlKey && e.key === 'c') {
-        rectInfoList.value.forEach((item) => {
-            if (highRectList.value.has(item.id)) {
-                console.log('复制的元素信息:', item);
-            }
-        });
-    } else if (e.ctrlKey && e.key === 'v') {
-        console.log('粘贴元素');
-        pasteElement()
-    }
-}
-
-//点击添加元素在highRectList中
-const clikePagesItem = (e: MouseEvent) => {
-    console.log('点击元素:', e);
-    e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    const id = target.getAttribute('data-id') || '';
-    if (highRectList.value.has(id)) {
-        highRectList.value.delete(id);
-    } else {
-        highRectList.value.add(id);
-    }
-}
-
-// 监听delete事件
-const deletePageItem = (e: KeyboardEvent) => {
-    if (e.key === 'Delete') {
-        pages.value = pages.value.filter((item) => {
-            return !highRectList.value.has(`id-key-${item.id}`);
-        });
-        // 更新坐标信息
-        // initCanvas();
-        rectInfoList.value.forEach((item, key) => {
-            if (highRectList.value.has(key)) {
-                rectInfoList.value.delete(key);
-            }
-        });
-        storageIndexDB.saveData(pages.value, "whiteboard-pages");
-    }
-}
-
-
-
-onMounted(() => {//数据读取
+// 生命周期
+onMounted(() => {
+    // 数据读取
     storageIndexDB.getData("whiteboard-pages").then((data) => {
         console.log("读取到的数据:", data);
-        // pages.value = data;
-        getAllDomPoint()
-    })
-    //画布滚动和缩放事件
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
-    //框选事件
-    initCanvas()
-    window.addEventListener('mousedown', mouseDown)
-    window.addEventListener('mousemove', mouseMove)
-    window.addEventListener('mouseup', mouseUp)
-    //复制粘贴事件
-    document.addEventListener('keydown', handleKeyDownCtrlCV);
-    document.addEventListener('keydown', deletePageItem);
-    // 延迟加载小地图，确保DOM完全加载
+        getAllDomPoint();
+    });
+
+    // 初始化事件
+    initializeEvents();
+
+    // 初始化画布
+    initCanvas();
+
+    // 延迟加载小地图
     setTimeout(() => {
         extractMinimap();
     }, 100);
 
-
-
+    // 添加存储清理
+    eventManager.addCleanup(() => {
+        storageIndexDB.saveData(pages.value, "whiteboard-pages");
+        storageIndexDB.close();
+    });
 });
 
+// 组件卸载时自动清理所有事件
 onUnmounted(() => {
-    document.removeEventListener('keydown', handleKeyDown);
-    document.removeEventListener('keyup', handleKeyUp);
-    if (targetIframe.value && targetIframe.value.src.startsWith('blob:')) {
-        URL.revokeObjectURL(targetIframe.value.src);
-    }
-    //数据保存
-    storageIndexDB.saveData(pages.value, "whiteboard-pages");
-    //移除框选事件
-    window.removeEventListener('mousedown', mouseDown)
-    window.removeEventListener('mousemove', mouseMove)
-    window.removeEventListener('mouseup', mouseUp)
-    //移除复制粘贴事件
-    document.removeEventListener('keydown', handleKeyDownCtrlCV);
-    document.removeEventListener('keydown', deletePageItem);
-    refreshMinimap();
-    storageIndexDB.close();
-
+    eventManager.cleanupAll();
 });
 </script>
 
@@ -750,18 +727,15 @@ onUnmounted(() => {
     overflow: hidden;
     position: relative;
     background: #f8f9fa;
-    /* 禁止容器本身的滚动，完全接管滚轮事件 */
     touch-action: none;
 }
 
 .grid-bg {
     pointer-events: none;
-    /* 网格不阻挡鼠标 */
 }
 
 .canvas {
-    /* z-index 确保内容在网格之上 */
-    z-index: 1
+    z-index: 1;
 }
 
 .minimap {
