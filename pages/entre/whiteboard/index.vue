@@ -2,7 +2,7 @@
     <div class="canvas-container" ref="containerRef" @wheel="handleCanvasWheel" @mousedown="dragCanvas">
         <div class="grid-bg" :style="gridStyle"></div>
         <div ref="canvasRef" class="canvas" :style="canvasStyle">
-            <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`"
+            <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" @click="clikePagesItem"
                 class="absolute bg-white rounded-lg shadow-lg p-4 border-2 cursor-pointer select-none transition-all duration-200"
                 :style="{
                     top: page.rect.y + 'px',
@@ -14,7 +14,9 @@
                     borderColor: highRectList.has(`id-key-${page.id}`) ? '#10b981' : page.borderColor,
                     boxShadow: highRectList.has(`id-key-${page.id}`)
                         ? '0 0 0 3px rgba(16, 185, 129, 0.3), 0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                        : '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    pointerEvents: 'auto', // 确保可点击
+                    zIndex: 10 // 确保在正确层级
                 }">
                 <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ page.type }}</h3>
                 <p class="text-gray-600">x: {{ page.rect.x }}, y: {{ page.rect.y }}</p>
@@ -480,25 +482,32 @@ type RectInfo = {
 }
 
 // const rectInfoList = ref<RectInfo[]>([])
+// 存储所有元素信息
 const rectInfoList = ref<Map<string, RectInfo>>(new Map());
-const CanvasPages = ref<HTMLCanvasElement | null>(null)
+const CanvasPages = ref<HTMLCanvasElement | null>(null);
+// 存储被框选中的元素ID(也包括点击的信息)
 const highRectList = ref<Set<string>>(new Set());
 
 
 const getAllDomPoint = () => {
-    if (!canvasRef.value) return
-    for (const key of canvasRef.value.children) {
-        const id = key.getAttribute('data-id') || ''
-        const { x, y, width, height } = key.getBoundingClientRect()
-        rectInfoList.value.set(id, {
-            id: (key as HTMLElement).dataset.id || '',
-            x,
-            y,
-            width,
-            height,
-        })
-    }
-    //收集项目的元素
+
+    //没有收集到元素，等待dom加载完成
+    nextTick(() => {
+        if (!canvasRef.value) return
+        for (const key of canvasRef.value.children) {
+            const id = key.getAttribute('data-id') || ''
+            const { x, y, width, height } = key.getBoundingClientRect()
+            rectInfoList.value.set(id, {
+                id: (key as HTMLElement).dataset.id || '',
+                x,
+                y,
+                width,
+                height,
+            })
+        }
+        console.log('rectInfoList', rectInfoList.value);
+        //收集项目的元素
+    })
 }
 
 
@@ -662,10 +671,27 @@ const handleKeyDownCtrlCV = (e: KeyboardEvent) => {
     }
 }
 
+//点击添加元素在highRectList中
+const clikePagesItem = (e: MouseEvent) => {
+    console.log('点击元素:', e);
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    const id = target.getAttribute('data-id') || '';
+    if (highRectList.value.has(id)) {
+        highRectList.value.delete(id);
+    } else {
+        highRectList.value.add(id);
+    }
+}
 
 
 
-onMounted(() => {
+onMounted(() => {//数据读取
+    storageIndexDB.getData("whiteboard-pages").then((data) => {
+        console.log("读取到的数据:", data);
+        pages.value = data;
+        getAllDomPoint()
+    })
     //画布滚动和缩放事件
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
@@ -676,17 +702,14 @@ onMounted(() => {
     window.addEventListener('mouseup', mouseUp)
     //复制粘贴事件
     document.addEventListener('keydown', handleKeyDownCtrlCV);
-    getAllDomPoint()
+
     // 延迟加载小地图，确保DOM完全加载
     setTimeout(() => {
         extractMinimap();
     }, 100);
 
-    //数据读取
-    storageIndexDB.getData("whiteboard-pages").then((data) => {
-        console.log("读取到的数据:", data);
-        pages.value = data;
-    })
+
+
 });
 
 onUnmounted(() => {
@@ -718,7 +741,7 @@ onUnmounted(() => {
 
 .canvas {
     /* z-index 确保内容在网格之上 */
-    z-index: 1;
+    z-index: 1
 }
 
 .minimap {
