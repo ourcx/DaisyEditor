@@ -97,19 +97,16 @@ import { ref, computed, onMounted, onUnmounted, type CSSProperties } from 'vue';
 import { throttle } from 'lodash-es';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
-
-// 定义简单类型以避免导入错误
-interface Rect { x: number; y: number; width: number; height: number; }
-interface WhithBoardProps { rect: Rect; type: string; background: string; borderWidth: number; borderColor: string; id: number; }
+import type { AreaPoint, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
 
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
 
 // 示例数据
 const pages = ref<WhithBoardProps[]>([
-    // { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1, },
-    // { rect: { x: 500, y: 200, width: 200, height: 150 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
-    // { rect: { x: -300, y: 400, width: 200, height: 150 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
+    { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1, },
+    { rect: { x: 500, y: 200, width: 200, height: 150 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
+    { rect: { x: -300, y: 400, width: 200, height: 150 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
 ]);
 
 // 核心状态：画布的偏移量和缩放
@@ -438,12 +435,7 @@ const initCanvas = () => {
     drawer.value = new Drawer({ view: canvas })
 }
 
-type AreaPoint = {
-    startX: number
-    startY: number
-    endX: number
-    endY: number
-}
+
 const areaPoint = reactive<AreaPoint>({
     startX: 0,
     startY: 0,
@@ -473,13 +465,6 @@ const mouseUp = (e: MouseEvent) => {
 }
 
 
-type RectInfo = {
-    id: string
-    x: number
-    y: number
-    width: number
-    height: number
-}
 
 // const rectInfoList = ref<RectInfo[]>([])
 // 存储所有元素信息
