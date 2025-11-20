@@ -503,8 +503,8 @@ const getAllDomPoint = () => {
 const computedIsSelected = (areaPoint: AreaPoint, rectInfo: RectInfo) => {
     const { startX, startY, endX, endY } = areaPoint;
     let { x, y, width, height } = rectInfo;
-    x = x + transformRef.value.x
-    y = y + transformRef.value.y
+    x = x* (transformRef.value.scale) + transformRef.value.x 
+    y = y* (transformRef.value.scale) + transformRef.value.y
     width = width * transformRef.value.scale;
     height = height * transformRef.value.scale;
     // 计算最终的框选位置，要考虑画布的偏移量，然后还有比例
@@ -621,8 +621,8 @@ const pasteElement = () => {
                 rect: {
                     x: item.rect.x + 20,
                     y: item.rect.y + 20,
-                    width: item.rect.width * transformRef.value.scale,
-                    height: item.rect.height * transformRef.value.scale,
+                    width: item.rect.width,
+                    height: item.rect.height,
                 },
                 background: item.background,
                 borderWidth: item.borderWidth,
@@ -699,7 +699,7 @@ const deletePageItem = (e: KeyboardEvent) => {
 onMounted(() => {//数据读取
     storageIndexDB.getData("whiteboard-pages").then((data) => {
         console.log("读取到的数据:", data);
-        pages.value = data;
+        // pages.value = data;
         getAllDomPoint()
     })
     //画布滚动和缩放事件
@@ -739,7 +739,7 @@ onUnmounted(() => {
     document.removeEventListener('keydown', deletePageItem);
     refreshMinimap();
     storageIndexDB.close();
-    
+
 });
 </script>
 
