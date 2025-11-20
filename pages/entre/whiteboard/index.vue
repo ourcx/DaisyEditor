@@ -104,7 +104,7 @@ const canvasRef = ref<HTMLElement | null>(null);
 
 // 示例数据
 const pages = ref<WhithBoardProps[]>([
-    { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1 },
+    { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1, },
     { rect: { x: 500, y: 200, width: 200, height: 150 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
     { rect: { x: -300, y: 400, width: 200, height: 150 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
 ]);
@@ -482,18 +482,9 @@ type RectInfo = {
 const rectInfoList = ref<Map<string, RectInfo>>(new Map());
 const CanvasPages = ref<HTMLCanvasElement | null>(null)
 const highRectList = ref<Set<string>>(new Set());
+
+
 const getAllDomPoint = () => {
-    // const getAllDom = document.querySelector('.rect-wrapper')!.children
-    // for (const key of getAllDom) {
-    //     const { x, y, width, height } = key.getBoundingClientRect()
-    //     rectInfoList.value.push({
-    //         id: Number((key as HTMLElement).dataset.id),
-    //         x,
-    //         y,
-    //         width,
-    //         height
-    //     })
-    // }
     if (!canvasRef.value) return
     for (const key of canvasRef.value.children) {
         const id = key.getAttribute('data-id') || ''
@@ -509,6 +500,7 @@ const getAllDomPoint = () => {
     //收集项目的元素
 }
 
+
 /**
  * 判断框选位置是否可以选中
  * @param areaPoint
@@ -516,7 +508,6 @@ const getAllDomPoint = () => {
  */
 const computedIsSelected = (areaPoint: AreaPoint, rectInfo: RectInfo) => {
     const { startX, startY, endX, endY } = areaPoint;
-    console.log('areaPoint', startX, startY, endX, endY);
     let { x, y, width, height } = rectInfo;
     x = x + transformRef.value.x
     y = y + transformRef.value.y
@@ -622,16 +613,67 @@ const mouseMove = (e: MouseEvent) => {
         });
     }
 }
+const pasteElement = () => {
+    const newElements: WhithBoardProps[] = [];
+    pages.value.forEach((item) => {
+        if (highRectList.value.has(`id-key-${item.id}`)) {
+            const newId = Date.now() + Math.floor(Math.random() * 1000);
+            //新元素的坐标是鼠标坐标
+            const newElement: WhithBoardProps = {
+                id: newId,
+                type: item.type,
+                rect: {
+                    x: item.rect.x + 20 - transformRef.value.x,
+                    y: item.rect.y + 20 - transformRef.value.y,
+                    width: item.rect.width,
+                    height: item.rect.height,
+                },
+                background: item.background,
+                borderWidth: item.borderWidth,
+                borderColor: item.borderColor,
+            };
+            newElements.push(newElement);
+        }
+    });
+    pages.value.push(...newElements);
+    // 更新坐标信息
+    setTimeout(() => {
+        getAllDomPoint();
+    }, 100);
+    //刷新小地图
+    refreshMinimap();
+}
+
+
+//监听ctrl c和 ctrl v事件
+const handleKeyDownCtrlCV = (e: KeyboardEvent) => {
+    console.log('按下了ctrl+c或者ctrl+v', e);
+    if (e.ctrlKey && e.key === 'c') {
+        rectInfoList.value.forEach((item) => {
+            if (highRectList.value.has(item.id)) {
+                console.log('复制的元素信息:', item);
+            }
+        });
+    } else if (e.ctrlKey && e.key === 'v') {
+        console.log('粘贴元素');
+        pasteElement()
+    }
+}
+
 
 
 
 onMounted(() => {
+    //画布滚动和缩放事件
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
+    //框选事件
     initCanvas()
     window.addEventListener('mousedown', mouseDown)
     window.addEventListener('mousemove', mouseMove)
     window.addEventListener('mouseup', mouseUp)
+    //复制粘贴事件
+    document.addEventListener('keydown', handleKeyDownCtrlCV);
     getAllDomPoint()
     // 延迟加载小地图，确保DOM完全加载
     setTimeout(() => {
