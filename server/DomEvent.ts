@@ -17,7 +17,7 @@ export function useEventManager() {
   ) => {
     element.addEventListener(type, handler, options)
     handlers.value.push({ element, type, handler, options })
-    
+
     // 返回清理函数
     return () => {
       removeEventListener(element, type, handler)
@@ -53,7 +53,7 @@ export function useEventManager() {
 
   // 批量添加事件
   const addEventListeners = (events: Omit<EventHandler, 'options'>[]) => {
-    const cleanups = events.map(event => 
+    const cleanups = events.map(event =>
       addEventListener(event.element, event.type, event.handler)
     )
     return () => cleanups.forEach(cleanup => cleanup())
@@ -76,6 +76,24 @@ export function useEventManager() {
     cleanupFunctions.value.forEach(cleanup => cleanup())
     cleanupFunctions.value = []
   }
+
+
+
+
+  //工具栏事件处理函数
+  //工具栏调用这个函数，传入工具栏的id，然后根据id来处理事件，并且返回对应的清理函数和标准化的数据结构给页面处理
+  const handleToolbarEvent = (toolbarId: string): [() => void] => {
+    // 根据toolbarId处理不同的事件
+    switch (toolbarId) {
+      case 'toolbar1':
+         
+    }
+    return [() => { }]
+  }
+
+
+
+
 
   onUnmounted(cleanupAll)
 

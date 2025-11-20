@@ -10,7 +10,7 @@
     "postinstall": "nuxt prepare",
     "lint:pritter": "prettier --write src/",
     "lint:eslint": "eslint src/",
-    "push" : "push.bat"
+    "push": "push.bat"
   },
   "dependencies": {
     "@auth/core": "^0.41.0",
@@ -75,6 +75,8 @@
     "@eslint/js": "^9.38.0",
     "@primevue/nuxt-module": "^4.4.1",
     "@types/bcryptjs": "^2.4.6",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-shape": "^3.1.7",
     "@types/node": "^24.9.1",
     "@types/pg": "^8.15.5",
     "autoprefixer": "^10.4.21",

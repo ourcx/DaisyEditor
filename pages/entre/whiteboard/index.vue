@@ -20,6 +20,7 @@
                 }">
                 <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ page.type }}</h3>
                 <p class="text-gray-600">x: {{ page.rect.x }}, y: {{ page.rect.y }}</p>
+                <BoardItem/>
             </div>
         </div>
         <canvas id="canvas" class="canvas"></canvas>
@@ -93,12 +94,11 @@ definePageMeta({
 });
 
 import { ref, computed, onMounted, nextTick, reactive, type CSSProperties } from 'vue';
-import { throttle } from 'lodash-es';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
 import type { AreaPoint, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
 import { useEventManager } from '~/server/DomEvent';
-
+import BoardItem from '~/components/Board/BoardItem.vue';
 // DOM 引用
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
