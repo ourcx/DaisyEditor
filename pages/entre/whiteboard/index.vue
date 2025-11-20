@@ -475,7 +475,6 @@ const highRectList = ref<Set<string>>(new Set());
 
 
 const getAllDomPoint = () => {
-
     //没有收集到元素，等待dom加载完成
     nextTick(() => {
         if (!canvasRef.value) return
@@ -509,6 +508,8 @@ const computedIsSelected = (areaPoint: AreaPoint, rectInfo: RectInfo) => {
     width = width * transformRef.value.scale;
     height = height * transformRef.value.scale;
     // 计算最终的框选位置，要考虑画布的偏移量，然后还有比例
+    console.log('computedIsSelected', areaPoint, rectInfo, transformRef.value);
+    console.log('computedIsSelected-adjusted', { x, y, width, height });
     const finalStartX = startX > endX ? endX : startX;
     const finalStartY = startY > endY ? endY : startY;
     const finalEndX = startX > endX ? startX : endX;
@@ -618,23 +619,30 @@ const pasteElement = () => {
                 id: newId,
                 type: item.type,
                 rect: {
-                    x: item.rect.x + 20 - transformRef.value.x,
-                    y: item.rect.y + 20 - transformRef.value.y,
-                    width: item.rect.width,
-                    height: item.rect.height,
+                    x: item.rect.x + 20,
+                    y: item.rect.y + 20,
+                    width: item.rect.width * transformRef.value.scale,
+                    height: item.rect.height * transformRef.value.scale,
                 },
                 background: item.background,
                 borderWidth: item.borderWidth,
                 borderColor: item.borderColor,
             };
             newElements.push(newElement);
+            //设置rectInfoList
+            rectInfoList.value.set(`id-key-${newId}`, {
+                id: `id-key-${newId}`,
+                x: newElement.rect.x,
+                y: newElement.rect.y,
+                width: newElement.rect.width,
+                height: newElement.rect.height,
+            });
         }
     });
     pages.value.push(...newElements);
     // 更新坐标信息
-    setTimeout(() => {
-        getAllDomPoint();
-    }, 100);
+    // initCanvas();
+    // getAllDomPoint();
     //刷新小地图
     refreshMinimap();
     // 保存数据
@@ -669,6 +677,23 @@ const clikePagesItem = (e: MouseEvent) => {
     }
 }
 
+// 监听delete事件
+const deletePageItem = (e: KeyboardEvent) => {
+    if (e.key === 'Delete') {
+        pages.value = pages.value.filter((item) => {
+            return !highRectList.value.has(`id-key-${item.id}`);
+        });
+        // 更新坐标信息
+        // initCanvas();
+        rectInfoList.value.forEach((item, key) => {
+            if (highRectList.value.has(key)) {
+                rectInfoList.value.delete(key);
+            }
+        });
+        storageIndexDB.saveData(pages.value, "whiteboard-pages");
+    }
+}
+
 
 
 onMounted(() => {//数据读取
@@ -687,7 +712,7 @@ onMounted(() => {//数据读取
     window.addEventListener('mouseup', mouseUp)
     //复制粘贴事件
     document.addEventListener('keydown', handleKeyDownCtrlCV);
-
+    document.addEventListener('keydown', deletePageItem);
     // 延迟加载小地图，确保DOM完全加载
     setTimeout(() => {
         extractMinimap();
@@ -705,6 +730,16 @@ onUnmounted(() => {
     }
     //数据保存
     storageIndexDB.saveData(pages.value, "whiteboard-pages");
+    //移除框选事件
+    window.removeEventListener('mousedown', mouseDown)
+    window.removeEventListener('mousemove', mouseMove)
+    window.removeEventListener('mouseup', mouseUp)
+    //移除复制粘贴事件
+    document.removeEventListener('keydown', handleKeyDownCtrlCV);
+    document.removeEventListener('keydown', deletePageItem);
+    refreshMinimap();
+    storageIndexDB.close();
+    
 });
 </script>
 
