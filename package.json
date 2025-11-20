@@ -9,7 +9,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint:pritter": "prettier --write src/",
-    "lint:eslint": "eslint src/"
+    "lint:eslint": "eslint src/",
+    "push" : "push.bat"
   },
   "dependencies": {
     "@auth/core": "^0.41.0",
