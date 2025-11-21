@@ -27,6 +27,12 @@
 
         <!-- 浮动菜单触发按钮 -->
         <Button
+          icon="pi pi-equals"
+          severity="secondary"
+          variant="text"
+          raised
+          rounded
+          aria-label="Bookmark"
           class="floating-trigger"
           @click.stop="toggleFloatingMenu($event, page)"
           :pt="{
@@ -48,7 +54,6 @@
             },
           }"
         >
-          <i class="pi pi-ellipsis-v" style="font-size: 0.8rem"></i>
         </Button>
       </div>
     </div>
@@ -70,11 +75,11 @@
         >
           <template #item="{ item }">
             <div
-              class="flex flex-col items-center justify-between gap-2 p-2 border rounded border-surface-200 dark:border-surface-700 w-20 cursor-pointer"
+              class="flex flex-col items-center justify-between gap-2 p-2 rounded w-10 cursor-pointer hover:bg-gray-100 hover:text-gray-700"
               @click="handleActionClick(item)"
+              :title="typeof item.label === 'function' ? item.label() : item.label"
             >
-              <span :class="item.icon" />
-              <span>{{ item.label }}</span>
+              <span :class="item.icon" class="p-2" />
             </div>
           </template>
         </SpeedDial>
@@ -91,6 +96,7 @@
       <Button @click="toggleGuides" class="">辅助线开关</Button>
     </div>
 
+    <BoardLeft />
     <!-- 小地图区域 -->
     <div
       v-if="isMinimapVisible"
@@ -175,7 +181,6 @@
         ></div>
       </div>
     </div>
-
     <!-- 显示小地图的按钮（当隐藏时） -->
     <button
       v-else
@@ -206,7 +211,7 @@ import StorageIndexDB from '~/utils/storage';
 import type { AreaPoint, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
 import { useEventManager } from '~/server/DomEvent';
 import BoardItem from '~/components/Board/BoardItem.vue';
-
+import BoardLeft from '~/components/Board/BoardLeft.vue';
 // DOM 引用
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
@@ -427,7 +432,6 @@ const closeFloatingMenu = () => {
 };
 
 const handleActionClick = (item: any) => {
-    closeFloatingMenu();
     if (item.command) {
         item.command();
     }
@@ -459,42 +463,65 @@ const router = useRouter();
 
 const items = ref([
     {
-        label: 'Add',
-        icon: 'pi pi-pencil',
+        icon: 'pi pi-expand',
+        label: '更改图形',
         command: () => {
-            toast.add({ severity: 'info', summary: 'Add', detail: 'Data Added', life: 3000 });
+            // 更改图形逻辑
+            toast.add({ severity: 'info', summary: '图形', detail: '更改图形功能', life: 3000 });
         }
     },
     {
-        label: 'Update',
-        icon: 'pi pi-refresh',
+        icon: 'pi pi-palette',
+        label: '更改颜色',
         command: () => {
-            toast.add({ severity: 'success', summary: 'Update', detail: 'Data Updated', life: 3000 });
+            // 更改颜色逻辑
+            toast.add({ severity: 'info', summary: '颜色', detail: '更改颜色功能', life: 3000 });
         }
     },
     {
-        label: 'Delete',
-        icon: 'pi pi-trash',
+        icon: 'pi pi-bullseye',
+        label: '更改边框',
         command: () => {
-            toast.add({ severity: 'error', summary: 'Delete', detail: 'Data Deleted', life: 3000 });
+            // 更改边框逻辑
+            toast.add({ severity: 'info', summary: '边框', detail: '更改边框功能', life: 3000 });
         }
     },
     {
-        label: 'Upload',
-        icon: 'pi pi-upload',
+        icon: 'pi pi-comment',
+        label: '评论',
         command: () => {
-            router.push('/fileupload');
+            // 评论逻辑
+            toast.add({ severity: 'info', summary: '评论', detail: '添加评论功能', life: 3000 });
         }
     },
     {
-        label: 'Vue Website',
-        icon: 'pi pi-external-link',
-        command: () => {
-            window.location.href = 'https://vuejs.org/'
-        }
+        icon: 'pi pi-ellipsis-v',
+        label: '更多设置',
+        items: [
+            {
+                icon: 'pi pi-download',
+                label: '导出',
+                command: () => {
+                    toast.add({ severity: 'info', summary: '导出', detail: '导出功能', life: 3000 });
+                }
+            },
+            {
+                icon: 'pi pi-copy',
+                label: '复制',
+                command: () => {
+                    toast.add({ severity: 'info', summary: '复制', detail: '复制功能', life: 3000 });
+                }
+            },
+            {
+                icon: 'pi pi-trash',
+                label: '删除',
+                command: () => {
+                    toast.add({ severity: 'error', summary: '删除', detail: '删除功能', life: 3000 });
+                }
+            }
+        ]
     }
 ]);
-
 // 事件处理函数
 const eventHandlers = {
     // 画布拖拽
@@ -1077,4 +1104,6 @@ onUnmounted(() => {
 .page-item:hover .floating-trigger {
   opacity: 1 !important;
 }
+
+/* 经过的时候显示浮动按钮 */
 </style>
