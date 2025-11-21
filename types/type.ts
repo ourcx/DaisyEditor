@@ -13,3 +13,10 @@ export type RectInfo = {
     width: number
     height: number
 }
+
+export interface MenuItem {
+  key: string
+  label: string
+  icon: string
+  handler: () => void
+}

@@ -1,5 +1,6 @@
 <template>
-  <div class="canvas-container" ref="containerRef">
+  <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu">
+    <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" />
     <div class="grid-bg" :style="gridStyle"></div>
     <div ref="canvasRef" class="canvas" :style="canvasStyle">
       <div
@@ -208,10 +209,11 @@ import { useRouter } from 'vue-router';
 import { ref, computed, onMounted, nextTick, reactive, type CSSProperties } from 'vue';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
-import type { AreaPoint, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
+import type { AreaPoint, MenuItem, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
 import { useEventManager } from '~/server/DomEvent';
 import BoardItem from '~/components/Board/BoardItem.vue';
 import BoardLeft from '~/components/Board/BoardLeft.vue';
+const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
 // DOM 引用
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
@@ -231,6 +233,24 @@ const minimapZoom = ref(0.1);
 const drawer = ref<Drawer>();
 const rectInfoList = ref<Map<string, RectInfo>>(new Map());
 const highRectList = ref<Set<string>>(new Set());
+    const contextMenuRef = ref()
+const menuItems: MenuItem[] = [
+  {
+    key: 'edit',
+    label: '编辑',
+    icon: 'Edit',
+    handler: () => {}
+  },
+  {
+    key: 'delete',
+    label: '删除',
+    icon: 'Delete',
+    handler: () => {}
+  }
+]
+const showContextMenu = (e: MouseEvent) => {
+  contextMenuRef.value?.show(e)
+}
 
 // 交互状态
 const interactionState = reactive({
@@ -580,6 +600,8 @@ const eventHandlers = {
             const newY = mouseY - (mouseY - transformRef.value.y) * scaleRatio;
 
             transformRef.value = { x: newX, y: newY, scale: newScale };
+            //重新初始化画布
+            initCanvas();
         } else {
             transformRef.value.x -= event.deltaX;
             transformRef.value.y -= event.deltaY;

@@ -1,5 +1,3 @@
-// nuxt.config.ts
-import Aura from "@primevue/themes/aura";
 import mypreset from "./plugin/myPreset";
 export default defineNuxtConfig({
   devtools: { enabled: false },
@@ -11,19 +9,29 @@ export default defineNuxtConfig({
       meta: [
         { name: "description", content: "Daisy Editor" },
         { name: "keywords", content: "Daisy Editor" },
+        //禁止缩放
+        { name: "viewport", content: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" },
       ],
       link: [{ rel: "icon", type: "image/x-icon", href: "/favicon.ico" }],
     },
   },
-   postcss: {
+  postcss: {
     plugins: {
       'postcss-import': {},
       'tailwindcss/nesting': {},
       tailwindcss: {},
       autoprefixer: {},
+      '@fullhuman/postcss-purgecss': {
+        content: [
+          './pages/**/*.vue',
+          './components/**/*.vue',
+          './layouts/**/*.vue'
+        ],
+        whitelist: ['html', 'body']
+      }
     },
   },
-  
+
   css: ["~/assets/css/main.css"],
   primevue: {
     //这样的导入方式才是正确的
@@ -31,7 +39,6 @@ export default defineNuxtConfig({
       ripple: true,
       inputVariant: "filled",
       theme: {
-        // 这里不需要 preset 选项，因为通过 importTheme 导入了
         preset: mypreset,
         options: {
           prefix: "p",
