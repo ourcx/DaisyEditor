@@ -17,9 +17,10 @@ export interface ShapesProps {
   y?: number;
   color?: string;
   size?: number;
+  boxshow?: boolean;
 }
 
-type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc";
+type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie";
 export interface Margin{
   top: number
   right: number

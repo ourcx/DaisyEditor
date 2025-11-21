@@ -2,26 +2,22 @@
     <div class="canvas-container" ref="containerRef">
         <div class="grid-bg" :style="gridStyle"></div>
         <div ref="canvasRef" class="canvas" :style="canvasStyle">
-            <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" @click="clickPageItem"
-                class="absolute bg-white rounded-lg shadow-lg p-4 border-2 cursor-pointer select-none transition-all duration-200"
+            <BoardItem v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" @click="clickPageItem"
+                class="absolute rounded-lg  cursor-pointer select-none transition-all duration-200"
                 :style="{
                     top: page.rect.y + 'px',
                     left: page.rect.x + 'px',
+                    pointerEvents: 'auto',
+                    zIndex: 10,
                     width: page.rect.width + 'px',
                     height: page.rect.height + 'px',
-                    background: page.background,
-                    borderWidth: page.borderWidth + 'px',
-                    borderColor: highRectList.has(`id-key-${page.id}`) ? '#10b981' : page.borderColor,
-                    boxShadow: highRectList.has(`id-key-${page.id}`)
-                        ? '0 0 0 3px rgba(16, 185, 129, 0.3), 0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                        : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                    pointerEvents: 'auto',
-                    zIndex: 10
-                }">
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ page.type }}</h3>
-                <p class="text-gray-600">x: {{ page.rect.x }}, y: {{ page.rect.y }}</p>
-                <BoardItem/>
-            </div>
+                }" 
+                :width="page.rect.width"
+                :height="page.rect.height"
+                :cx="page.rect.width"
+                :cy="page.rect.height"
+                :boxshow="highRectList.has(`id-key-${page.id}`)"
+                />
         </div>
         <canvas id="canvas" class="canvas"></canvas>
 
@@ -107,9 +103,9 @@ const targetIframe = ref<HTMLIFrameElement | null>(null);
 // 状态管理
 const transformRef = ref({ x: 0, y: 0, scale: 1 });
 const pages = ref<WhithBoardProps[]>([
-    { rect: { x: 0, y: 0, width: 200, height: 150 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1, },
-    { rect: { x: 500, y: 200, width: 200, height: 150 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
-    { rect: { x: -300, y: 400, width: 200, height: 150 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
+    { rect: { x: 0, y: 0, width: 200, height: 200 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1, },
+    { rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
+    { rect: { x: -300, y: 400, width: 200, height: 200 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
 ]);
 
 const isGuide = ref(true);
@@ -728,6 +724,9 @@ onUnmounted(() => {
     position: relative;
     background: #f8f9fa;
     touch-action: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .grid-bg {
