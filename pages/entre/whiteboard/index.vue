@@ -1,100 +1,212 @@
 <template>
-    <div class="canvas-container" ref="containerRef">
-        <div class="grid-bg" :style="gridStyle"></div>
-        <div ref="canvasRef" class="canvas" :style="canvasStyle">
-            <BoardItem v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" @click="clickPageItem"
-                class="absolute rounded-lg  cursor-pointer select-none transition-all duration-200"
-                :style="{
-                    top: page.rect.y + 'px',
-                    left: page.rect.x + 'px',
-                    pointerEvents: 'auto',
-                    zIndex: 10,
-                    width: page.rect.width + 'px',
-                    height: page.rect.height + 'px',
-                }" 
-                :width="page.rect.width"
-                :height="page.rect.height"
-                :cx="page.rect.width"
-                :cy="page.rect.height"
-                :boxshow="highRectList.has(`id-key-${page.id}`)"
-                />
-        </div>
-        <canvas id="canvas" class="canvas"></canvas>
+  <div class="canvas-container" ref="containerRef">
+    <div class="grid-bg" :style="gridStyle"></div>
+    <div ref="canvasRef" class="canvas" :style="canvasStyle">
+      <div
+        v-for="(page, index) in pages"
+        :key="index"
+        :data-id="`id-key-${page.id}`"
+        class="absolute rounded-lg cursor-pointer select-none transition-all duration-200 page-item"
+        :style="{
+          top: page.rect.y + 'px',
+          left: page.rect.x + 'px',
+          pointerEvents: 'auto',
+          zIndex: 10,
+          width: page.rect.width + 'px',
+          height: page.rect.height + 'px',
+        }"
+        @click="handlePageClick($event, page)"
+      >
+        <BoardItem
+          :width="page.rect.width"
+          :height="page.rect.height"
+          :cx="page.rect.width"
+          :cy="page.rect.height"
+          :boxshow="highRectList.has(`id-key-${page.id}`)"
+        />
 
-        <div
-            class="fixed bottom-4 right-4 bg-black/70 text-white p-2 rounded text-xs flex items-center justify-center gap-2">
-            Scale: {{ transformRef.scale.toFixed(2) }} | X: {{ transformRef.x.toFixed(0) }} | Y:
-            {{ transformRef.y.toFixed(0) }}
-            <Button @click="toggleGuides" class="">辅助线开关</Button>
-        </div>
-
-        <!-- 小地图区域 -->
-        <div v-if="isMinimapVisible"
-            class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96">
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium text-gray-700">导航地图</span>
-                <div class="flex space-x-1">
-                    <button @click="zoomInMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="放大">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
-                            </path>
-                        </svg>
-                    </button>
-                    <button @click="zoomOutMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="缩小">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
-                        </svg>
-                    </button>
-                    <button @click="refreshMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="刷新">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                            </path>
-                        </svg>
-                    </button>
-                    <button @click="toggleMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="隐藏">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <div class="slider w-full relative border border-gray-200 rounded overflow-hidden bg-white">
-                <iframe class="slider__content w-full h-full border-none" ref="targetIframe" sandbox="allow-same-origin"
-                    @load="onIframeLoad" />
-
-                <!-- 视口指示器 -->
-                <div class="absolute border-2 border-red-500 bg-red-200 bg-opacity-20 pointer-events-none transition-all duration-200"
-                    :style="viewportIndicatorStyle"></div>
-            </div>
-        </div>
-
-        <!-- 显示小地图的按钮（当隐藏时） -->
-        <button v-else @click="toggleMinimap"
-            class="fixed top-4 right-4 p-2 bg-primary-500 text-white rounded-lg shadow-lg hover:bg-red-400 transition-colors"
-            title="显示导航地图">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7">
-                </path>
-            </svg>
-        </button>
+        <!-- 浮动菜单触发按钮 -->
+        <Button
+          class="floating-trigger"
+          @click.stop="toggleFloatingMenu($event, page)"
+          :pt="{
+            root: {
+              style: {
+                position: 'absolute',
+                top: '4px',
+                right: '4px',
+                width: '32px',
+                height: '32px',
+                background: 'white',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                zIndex: 20,
+                opacity: 0,
+                transition: 'opacity 0.2s ease',
+              },
+            },
+          }"
+        >
+          <i class="pi pi-ellipsis-v" style="font-size: 0.8rem"></i>
+        </Button>
+      </div>
     </div>
+
+    <!-- 使用Teleport将浮动菜单渲染到body -->
+    <Teleport to="body">
+      <div
+        v-if="floatingMenuVisible"
+        class="global-floating-menu"
+        :style="floatingMenuStyle"
+        @click.stop
+      >
+        <SpeedDial
+          :model="items"
+          direction="up"
+          :transitionDelay="80"
+          :visible="floatingMenuVisible"
+          @hide="closeFloatingMenu"
+        >
+          <template #item="{ item }">
+            <div
+              class="flex flex-col items-center justify-between gap-2 p-2 border rounded border-surface-200 dark:border-surface-700 w-20 cursor-pointer"
+              @click="handleActionClick(item)"
+            >
+              <span :class="item.icon" />
+              <span>{{ item.label }}</span>
+            </div>
+          </template>
+        </SpeedDial>
+      </div>
+    </Teleport>
+
+    <canvas id="canvas" class="canvas"></canvas>
+
+    <div
+      class="fixed bottom-4 right-4 bg-black/70 text-white p-2 rounded text-xs flex items-center justify-center gap-2"
+    >
+      Scale: {{ transformRef.scale.toFixed(2) }} | X: {{ transformRef.x.toFixed(0) }} | Y:
+      {{ transformRef.y.toFixed(0) }}
+      <Button @click="toggleGuides" class="">辅助线开关</Button>
+    </div>
+
+    <!-- 小地图区域 -->
+    <div
+      v-if="isMinimapVisible"
+      class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96"
+    >
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-sm font-medium text-gray-700">导航地图</span>
+        <div class="flex space-x-1">
+          <button
+            @click="zoomInMinimap"
+            class="p-1 rounded hover:bg-gray-200 text-gray-600"
+            title="放大"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v16m8-8H4"
+              ></path>
+            </svg>
+          </button>
+          <button
+            @click="zoomOutMinimap"
+            class="p-1 rounded hover:bg-gray-200 text-gray-600"
+            title="缩小"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M20 12H4"
+              ></path>
+            </svg>
+          </button>
+          <button
+            @click="refreshMinimap"
+            class="p-1 rounded hover:bg-gray-200 text-gray-600"
+            title="刷新"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              ></path>
+            </svg>
+          </button>
+          <button
+            @click="toggleMinimap"
+            class="p-1 rounded hover:bg-gray-200 text-gray-600"
+            title="隐藏"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="slider w-full relative border border-gray-200 rounded overflow-hidden bg-white"
+      >
+        <iframe
+          class="slider__content w-full h-full border-none"
+          ref="targetIframe"
+          sandbox="allow-same-origin"
+          @load="onIframeLoad"
+        />
+
+        <!-- 视口指示器 -->
+        <div
+          class="absolute border-2 border-red-500 bg-red-200 bg-opacity-20 pointer-events-none transition-all duration-200"
+          :style="viewportIndicatorStyle"
+        ></div>
+      </div>
+    </div>
+
+    <!-- 显示小地图的按钮（当隐藏时） -->
+    <button
+      v-else
+      @click="toggleMinimap"
+      class="fixed top-4 right-4 p-2 bg-primary-500 text-white rounded-lg shadow-lg hover:bg-red-400 transition-colors"
+      title="显示导航地图"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+        ></path>
+      </svg>
+    </button>
+  </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({
     layout: false,
 });
-
+import { useRouter } from 'vue-router';
 import { ref, computed, onMounted, nextTick, reactive, type CSSProperties } from 'vue';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
 import type { AreaPoint, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
 import { useEventManager } from '~/server/DomEvent';
 import BoardItem from '~/components/Board/BoardItem.vue';
+
 // DOM 引用
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
@@ -136,6 +248,11 @@ const keyboardState = reactive({
     isSpacePressed: false,
     ctrlPressed: false
 });
+
+// 浮动菜单状态
+const floatingMenuVisible = ref(false);
+const floatingMenuPosition = ref({ x: 0, y: 0 });
+const currentPageId = ref<number | null>(null);
 
 // 存储实例
 const storageIndexDB = new StorageIndexDB();
@@ -194,6 +311,189 @@ const gridStyle = computed<CSSProperties>(() => {
         pointerEvents: 'none'
     };
 });
+
+const floatingMenuStyle = computed<CSSProperties>(() => ({
+    position: 'fixed',
+    left: `${floatingMenuPosition.value.x}px`,
+    top: `${floatingMenuPosition.value.y}px`,
+    zIndex: 10000,
+}));
+
+// 浮动菜单函数 - 修复版本
+const toggleFloatingMenu = (event: MouseEvent, page: WhithBoardProps) => {
+    event.stopPropagation();
+
+    console.log('toggleFloatingMenu', page.id, event);
+
+    // 如果点击的是同一个页面且菜单已显示，则关闭
+    if (floatingMenuVisible.value && currentPageId.value === page.id) {
+        closeFloatingMenu();
+        return;
+    }
+
+    currentPageId.value = page.id;
+
+    // 获取页面元素在屏幕上的实际位置
+    const pageElement = event.currentTarget as HTMLElement;
+    const pageRect = pageElement.getBoundingClientRect();
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // 预估菜单尺寸
+    const menuWidth = 200;
+    const menuHeight = items.value.length * 60;
+
+    // 计算按钮在屏幕上的位置（触发按钮在页面右上角）
+    const buttonRect = {
+        x: pageRect.right - 32, // 按钮宽度32px
+        y: pageRect.top,
+        width: 32,
+        height: 32
+    };
+
+    // 计算按钮中心点
+    const buttonCenterX = buttonRect.x + buttonRect.width / 2;
+    const buttonCenterY = buttonRect.y + buttonRect.height / 2;
+
+    // 根据按钮在视口中的位置决定最佳显示方向
+    let preferredPosition = '';
+
+    if (buttonCenterX > viewportWidth * 0.7 && buttonCenterY < viewportHeight * 0.3) {
+        preferredPosition = 'bottom-left';
+    } else if (buttonCenterX > viewportWidth * 0.7 && buttonCenterY > viewportHeight * 0.7) {
+        preferredPosition = 'top-left';
+    } else if (buttonCenterX < viewportWidth * 0.3 && buttonCenterY < viewportHeight * 0.3) {
+        preferredPosition = 'bottom-right';
+    } else if (buttonCenterX < viewportWidth * 0.3 && buttonCenterY > viewportHeight * 0.7) {
+        preferredPosition = 'top-right';
+    } else {
+        preferredPosition = buttonCenterX > viewportWidth / 2 ? 'left' : 'right';
+    }
+
+    let finalX = buttonRect.x;
+    let finalY = buttonRect.y;
+
+    switch (preferredPosition) {
+        case 'bottom-left':
+            finalX = buttonRect.x - menuWidth + buttonRect.width;
+            finalY = buttonRect.y + buttonRect.height + 5;
+            break;
+        case 'top-left':
+            finalX = buttonRect.x - menuWidth + buttonRect.width;
+            finalY = buttonRect.y - menuHeight - 5;
+            break;
+        case 'bottom-right':
+            finalX = buttonRect.x + buttonRect.width + 5;
+            finalY = buttonRect.y + buttonRect.height + 5;
+            break;
+        case 'top-right':
+            finalX = buttonRect.x + buttonRect.width + 5;
+            finalY = buttonRect.y - menuHeight - 5;
+            break;
+        case 'left':
+            finalX = buttonRect.x - menuWidth - 5;
+            finalY = buttonRect.y;
+            break;
+        case 'right':
+        default:
+            finalX = buttonRect.x + buttonRect.width + 5;
+            finalY = buttonRect.y;
+            break;
+    }
+
+    // 边界检查
+    finalX = Math.max(5, Math.min(finalX, viewportWidth - menuWidth - 5));
+    finalY = Math.max(5, Math.min(finalY, viewportHeight - menuHeight - 5));
+
+    floatingMenuPosition.value = {
+        x: finalX,
+        y: finalY,
+    };
+
+    floatingMenuVisible.value = true;
+
+};
+
+const handleGlobalClick = (event: MouseEvent) => {
+    if (!(event.target as HTMLElement).closest('.global-floating-menu')) {
+        closeFloatingMenu();
+    }
+};
+
+const closeFloatingMenu = () => {
+    floatingMenuVisible.value = false;
+    currentPageId.value = null;
+};
+
+const handleActionClick = (item: any) => {
+    closeFloatingMenu();
+    if (item.command) {
+        item.command();
+    }
+};
+
+// 页面点击处理
+const handlePageClick = (event: MouseEvent, page: WhithBoardProps) => {
+    // 如果点击的是浮动触发按钮，不处理页面点击
+    if ((event.target as HTMLElement).closest('.floating-trigger')) {
+        return;
+    }
+
+    clickPageItem(event);
+};
+
+const clickPageItem = (e: MouseEvent) => {
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    const id = target.getAttribute('data-id') || '';
+    if (highRectList.value.has(id)) {
+        highRectList.value.delete(id);
+    } else {
+        highRectList.value.add(id);
+    }
+};
+
+const toast = useToast();
+const router = useRouter();
+
+const items = ref([
+    {
+        label: 'Add',
+        icon: 'pi pi-pencil',
+        command: () => {
+            toast.add({ severity: 'info', summary: 'Add', detail: 'Data Added', life: 3000 });
+        }
+    },
+    {
+        label: 'Update',
+        icon: 'pi pi-refresh',
+        command: () => {
+            toast.add({ severity: 'success', summary: 'Update', detail: 'Data Updated', life: 3000 });
+        }
+    },
+    {
+        label: 'Delete',
+        icon: 'pi pi-trash',
+        command: () => {
+            toast.add({ severity: 'error', summary: 'Delete', detail: 'Data Deleted', life: 3000 });
+        }
+    },
+    {
+        label: 'Upload',
+        icon: 'pi pi-upload',
+        command: () => {
+            router.push('/fileupload');
+        }
+    },
+    {
+        label: 'Vue Website',
+        icon: 'pi pi-external-link',
+        command: () => {
+            window.location.href = 'https://vuejs.org/'
+        }
+    }
+]);
 
 // 事件处理函数
 const eventHandlers = {
@@ -447,6 +747,16 @@ const initializeEvents = () => {
             handler: eventHandlers.handleSelectionEnd
         }
     ]);
+
+    //点击事件
+
+    eventManager.addEventListeners([
+        {
+            element: containerRef.value,
+            type: 'click',
+            handler: handleGlobalClick
+        }
+    ]);
 };
 
 // 工具函数
@@ -543,17 +853,6 @@ const pasteElement = () => {
     storageIndexDB.saveData(pages.value, "whiteboard-pages");
 };
 
-const clickPageItem = (e: MouseEvent) => {
-    e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    const id = target.getAttribute('data-id') || '';
-    if (highRectList.value.has(id)) {
-        highRectList.value.delete(id);
-    } else {
-        highRectList.value.add(id);
-    }
-};
-
 const deletePageItem = () => {
     const highRectKeys = new Set(Array.from(highRectList.value.keys()));
 
@@ -568,6 +867,7 @@ const deletePageItem = () => {
     });
     storageIndexDB.saveData(pages.value, "whiteboard-pages");
 };
+
 // 小地图功能
 const zoomInMinimap = () => {
     if (minimapZoom.value < 0.5) {
@@ -629,8 +929,8 @@ const extractMinimap = () => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { 
-            transform: scale(${minimapZoom.value}); 
+        body {
+            transform: scale(${minimapZoom.value});
             transform-origin: 0 0;
             width: ${100 / minimapZoom.value}%;
             height: ${100 / minimapZoom.value}%;
@@ -639,8 +939,8 @@ const extractMinimap = () => {
             background: #f8f9fa;
             cursor: pointer;
         }
-        .minimap { 
-            display: none !important; 
+        .minimap {
+            display: none !important;
         }
         .fixed.bottom-4.right-4 {
             display: none !important;
@@ -664,6 +964,9 @@ const extractMinimap = () => {
         }
         #fatkun-drop-panel-inner{
             display: none !important;
+        }
+        .floating-trigger {
+            opacity: 1 !important;
         }
     </style>
 </head>
@@ -718,46 +1021,60 @@ onUnmounted(() => {
 
 <style scoped>
 .canvas-container {
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    position: relative;
-    background: #f8f9fa;
-    touch-action: none;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  background: #f8f9fa;
+  touch-action: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .grid-bg {
-    pointer-events: none;
+  pointer-events: none;
 }
 
 .canvas {
-    z-index: 1;
+  z-index: 1;
 }
 
 .minimap {
-    z-index: 1000;
-    backdrop-filter: blur(8px);
+  z-index: 1000;
+  backdrop-filter: blur(8px);
 }
 
 .slider {
-    width: 100%;
-    height: 90%;
+  width: 100%;
+  height: 90%;
 }
 
 .slider__content {
-    width: 100%;
-    height: 100%;
-    background: white;
+  width: 100%;
+  height: 100%;
+  background: white;
 }
 
 .canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    user-select: none;
-    pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* 浮动菜单样式 */
+.global-floating-menu {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+}
+
+/* 页面悬停时显示浮动按钮 */
+.page-item:hover .floating-trigger {
+  opacity: 1 !important;
 }
 </style>

@@ -50,21 +50,19 @@ const init = () => {
   // 清除容器内容
   shapeContainer.value.innerHTML = "";
 
-  const svg = select(shapeContainer.value as unknown as Element)
+  const svg = select((shapeContainer.value as unknown) as Element)
     .append("svg")
     .attr("width", props.width)
     .attr("height", props.height)
     .attr("viewBox", `0 0 ${props.width} ${props.height}`)
     .attr("preserveAspectRatio", "xMidYMid meet");
-
-  console.log("绘制图形:", props.shape, props);
-
   // 添加阴影滤镜定义
   if (props.boxshow) {
     const defs = svg.append("defs");
-    
+
     // 主阴影滤镜
-    const filter = defs.append("filter")
+    const filter = defs
+      .append("filter")
       .attr("id", "shadow")
       .attr("x", "-20%")
       .attr("y", "-20%")
@@ -72,7 +70,8 @@ const init = () => {
       .attr("height", "140%");
 
     // 创建阴影效果
-    filter.append("feDropShadow")
+    filter
+      .append("feDropShadow")
       .attr("dx", 0)
       .attr("dy", 2)
       .attr("stdDeviation", 3)
@@ -80,35 +79,40 @@ const init = () => {
       .attr("flood-opacity", 0.6);
 
     // 柔和发光效果滤镜
-    const glowFilter = defs.append("filter")
+    const glowFilter = defs
+      .append("filter")
       .attr("id", "glow")
       .attr("x", "-50%")
       .attr("y", "-50%")
       .attr("width", "200%")
       .attr("height", "200%");
 
-    glowFilter.append("feGaussianBlur")
+    glowFilter
+      .append("feGaussianBlur")
       .attr("in", "SourceGraphic")
       .attr("stdDeviation", 4)
       .attr("result", "blur");
-    
-    glowFilter.append("feFlood")
+
+    glowFilter
+      .append("feFlood")
       .attr("flood-color", props.color)
       .attr("flood-opacity", 0.3)
       .attr("result", "glowColor");
-    
-    glowFilter.append("feComposite")
+
+    glowFilter
+      .append("feComposite")
       .attr("in", "glowColor")
       .attr("in2", "blur")
       .attr("operator", "in")
       .attr("result", "softGlow");
-    
-    glowFilter.append("feMerge")
+
+    glowFilter
+      .append("feMerge")
       .selectAll("feMergeNode")
       .data(["softGlow", "SourceGraphic"])
       .enter()
       .append("feMergeNode")
-      .attr("in", d => d);
+      .attr("in", (d) => d);
   }
 
   // 计算中心点
@@ -122,23 +126,20 @@ const init = () => {
     case "circle":
       const circle = svg
         .append("circle")
-
         .attr("cx", centerX)
         .attr("cy", centerY)
         .attr("r", r)
         .attr("stroke", props.boxshow ? "rgba(16, 185, 129, 0.8)" : "black")
         .attr("fill", props.color)
         .attr("fill-opacity", props.boxshow ? 0.7 : 1)
-        .attr("stroke-width", props.boxshow ? 2 : 1)
-        .attr("stroke-dasharray", props.boxshow ? "4, 4" : "none");
+        .attr("stroke-width", 5)
+        .attr("stroke-opacity", 0.5);
 
       // 应用阴影效果
       if (props.boxshow) {
-        // circle.attr("filter", "url(#shadow)");
-        
+        circle.attr("filter", "url(#shadow)");
         // 可选：添加发光效果
-        circle.attr("filter", "url(#glow)");
-        
+        // circle.attr("filter", "url(#glow)");
         // 或者组合效果
         // circle.attr("filter", "url(#shadow) url(#glow)");
       }
@@ -194,9 +195,9 @@ const init = () => {
       break;
 
     case "Curve": {
-      const adjustedData = props.data.map((point: { x: number; y: number; }) => ({
+      const adjustedData = props.data.map((point: { x: number; y: number }) => ({
         x: (point.x / 200) * props.width * 0.8 + props.width * 0.1,
-        y: (point.y / 120) * props.height * 0.8 + props.height * 0.1
+        y: (point.y / 120) * props.height * 0.8 + props.height * 0.1,
       }));
 
       const curveFunc = line<{ x: number; y: number }>()
@@ -219,9 +220,9 @@ const init = () => {
     }
 
     case "Area": {
-      const adjustedData = props.data.map((point: { x: number; y: number; }) => ({
+      const adjustedData = props.data.map((point: { x: number; y: number }) => ({
         x: (point.x / 200) * props.width * 0.8 + props.width * 0.1,
-        y: (point.y / 120) * props.height * 0.8 + props.height * 0.1
+        y: (point.y / 120) * props.height * 0.8 + props.height * 0.1,
       }));
 
       const curveFunc = line<{ x: number; y: number }>()
@@ -248,7 +249,7 @@ const init = () => {
         startAngle: 0,
         endAngle: Math.PI * 1.5,
         innerRadius: maxSize / 3,
-        outerRadius: maxSize / 2
+        outerRadius: maxSize / 2,
       };
 
       const arcGenerator = arc();
@@ -272,7 +273,15 @@ const init = () => {
 
 // 当props变化时重新绘制
 watch(
-  () => [props.shape, props.width, props.height, props.color, props.data, props.text, props.boxshow],
+  () => [
+    props.shape,
+    props.width,
+    props.height,
+    props.color,
+    props.data,
+    props.text,
+    props.boxshow,
+  ],
   () => {
     init();
   },
