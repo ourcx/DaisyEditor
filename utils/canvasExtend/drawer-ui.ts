@@ -65,10 +65,16 @@ class Drawer {
     if (isFill) {
       this.ctx.fillStyle = color; // 使用传入的颜色参数
       this.ctx.fill(this.path);
+      //形状加一个边框
+      this.ctx.strokeStyle = '#69b3a2';
+      this.ctx.lineWidth = 1;
+      this.ctx.stroke(this.path);
     } else {
       this.ctx.strokeStyle = color; // 使用传入的颜色参数
       this.ctx.stroke(this.path);
     }
+
+
 
     this.ceilList.push({
       path,

@@ -76,7 +76,7 @@
         >
           <template #item="{ item }">
             <div
-              class="flex flex-col items-center justify-between gap-2 p-2 rounded w-10 cursor-pointer hover:bg-gray-100 hover:text-gray-700"
+              class="flex flex-col items-center justify-between gap-2 p-2 rounded w-10 cursor-pointer hover:bg-emerald-200 hover:text-gray-700"
               @click="handleActionClick(item)"
               :title="typeof item.label === 'function' ? item.label() : item.label"
             >
@@ -89,11 +89,34 @@
 
     <canvas id="canvas" class="canvas"></canvas>
 
-    <div
-      class="fixed bottom-4 right-4 bg-black/70 text-white p-2 rounded text-xs flex items-center justify-center gap-2"
-    >
-      Scale: {{ transformRef.scale.toFixed(2) }} | X: {{ transformRef.x.toFixed(0) }} | Y:
-      {{ transformRef.y.toFixed(0) }}
+    <div class="fixed bottom-4 right-4 text-white flex items-center justify-center gap-2">
+      <!-- 历史记录撤回  -->
+      <Button
+        icon="pi pi-chevron-left"
+        class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
+      />
+      <!-- 历史记录前进  -->
+      <Button
+        icon="pi pi-chevron-right"
+        class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
+      />
+
+      <div class="bg-black/70 rounded text-xs flex items-center justify-center gap-1">
+        <!-- 放大  -->
+        <Button
+          icon="pi pi-search-plus"
+          class="hover:bg-black/80 rounded text-white bg-transparent"
+        />
+        <div class="pl-1 pr-1">
+          Scale: {{ transformRef.scale.toFixed(2) }} | X:
+          {{ transformRef.x.toFixed(0) }} | Y:
+          {{ transformRef.y.toFixed(0) }}
+        </div>
+        <Button
+          icon="pi pi-search-minus"
+          class="hover:bg-black/80 rounded text-white bg-transparent"
+        />
+      </div>
       <Button @click="toggleGuides" class="">辅助线开关</Button>
     </div>
 
@@ -233,23 +256,23 @@ const minimapZoom = ref(0.1);
 const drawer = ref<Drawer>();
 const rectInfoList = ref<Map<string, RectInfo>>(new Map());
 const highRectList = ref<Set<string>>(new Set());
-    const contextMenuRef = ref()
+const contextMenuRef = ref()
 const menuItems: MenuItem[] = [
-  {
-    key: 'edit',
-    label: '编辑',
-    icon: 'Edit',
-    handler: () => {}
-  },
-  {
-    key: 'delete',
-    label: '删除',
-    icon: 'Delete',
-    handler: () => {}
-  }
+    {
+        key: 'edit',
+        label: '编辑',
+        icon: 'Edit',
+        handler: () => { }
+    },
+    {
+        key: 'delete',
+        label: '删除',
+        icon: 'Delete',
+        handler: () => { }
+    }
 ]
 const showContextMenu = (e: MouseEvent) => {
-  contextMenuRef.value?.show(e)
+    contextMenuRef.value?.show(e)
 }
 
 // 交互状态

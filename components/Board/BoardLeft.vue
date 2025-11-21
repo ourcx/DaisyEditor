@@ -38,7 +38,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('shape')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -59,7 +59,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('text')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -75,7 +75,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('sticky')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -93,7 +93,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('arrow')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -113,7 +113,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('section')"
         >
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -133,7 +133,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('table')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -151,7 +151,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('paintBrush')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -171,7 +171,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('mindmap')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -187,7 +187,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('icon')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -203,7 +203,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('image')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -219,7 +219,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('more')"
         >
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -240,7 +240,7 @@
       <div class="">
         <button
           type="button"
-          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-200 transition-colors"
           @click="emitToolClick('comment')"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
