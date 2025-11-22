@@ -94,13 +94,15 @@
       <Button
         icon="pi pi-chevron-left"
         class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
-        @click="historyStore.undo()"
+        @click="handleUndo"
+        :disabled="!canUndo"
       />
       <!-- 历史记录前进  -->
       <Button
         icon="pi pi-chevron-right"
         class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
-        @click="historyStore.redo()"
+        @click="handleRedo"
+        :disabled="!canRedo"
       />
 
       <div class="bg-black/70 rounded text-xs flex items-center justify-center gap-1">
@@ -108,6 +110,7 @@
         <Button
           icon="pi pi-search-plus"
           class="hover:bg-black/80 rounded text-white bg-transparent"
+          @click="zoomIn"
         />
         <div class="pl-1 pr-1">
           Scale: {{ transformRef.scale.toFixed(2) }} | X:
@@ -117,6 +120,7 @@
         <Button
           icon="pi pi-search-minus"
           class="hover:bg-black/80 rounded text-white bg-transparent"
+          @click="zoomOut"
         />
       </div>
       <Button @click="toggleGuides" class="">辅助线开关</Button>
@@ -242,6 +246,7 @@ import { useHistoryStore } from '~/store/HistoryStore';
 
 const historyStore = useHistoryStore();
 const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
+
 // DOM 引用
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
@@ -276,6 +281,11 @@ const menuItems: MenuItem[] = [
         handler: () => { }
     }
 ]
+
+// 计算属性：是否可以撤销/重做
+const canUndo = computed(() => historyStore.cur > 0);
+const canRedo = computed(() => historyStore.cur < historyStore.history.length - 1);
+
 const showContextMenu = (e: MouseEvent) => {
     contextMenuRef.value?.show(e)
 }
@@ -372,7 +382,36 @@ const floatingMenuStyle = computed<CSSProperties>(() => ({
     zIndex: 10000,
 }));
 
-// 浮动菜单函数 - 修复版本
+// 历史记录相关方法
+const addHistory = () => {
+    // 替换原第387行
+    historyStore.addHistory(JSON.parse(JSON.stringify(pages.value)));
+    storageIndexDB.saveData(pages.value, "whiteboard-pages");
+};
+
+const handleUndo = () => {
+    const previousState = historyStore.undo();
+    if (previousState) {
+        pages.value = JSON.parse(JSON.stringify(previousState));
+        storageIndexDB.saveData(pages.value, "whiteboard-pages");
+        getAllDomPoint();
+        refreshMinimap();
+        highRectList.value.clear();
+    }
+};
+
+const handleRedo = () => {
+    const nextState = historyStore.redo();
+    if (nextState) {
+        pages.value = JSON.parse(JSON.stringify(nextState));
+        storageIndexDB.saveData(pages.value, "whiteboard-pages");
+        getAllDomPoint();
+        refreshMinimap();
+        highRectList.value.clear();
+    }
+};
+
+// 浮动菜单函数
 const toggleFloatingMenu = (event: MouseEvent, page: WhithBoardProps) => {
     event.stopPropagation();
 
@@ -516,6 +555,7 @@ const items = ref([
         command: () => {
             // 更改图形逻辑
             toast.add({ severity: 'info', summary: '图形', detail: '更改图形功能', life: 3000 });
+            addHistory(); // 添加历史记录
         }
     },
     {
@@ -524,6 +564,7 @@ const items = ref([
         command: () => {
             // 更改颜色逻辑
             toast.add({ severity: 'info', summary: '颜色', detail: '更改颜色功能', life: 3000 });
+            addHistory(); // 添加历史记录
         }
     },
     {
@@ -532,6 +573,7 @@ const items = ref([
         command: () => {
             // 更改边框逻辑
             toast.add({ severity: 'info', summary: '边框', detail: '更改边框功能', life: 3000 });
+            addHistory(); // 添加历史记录
         }
     },
     {
@@ -564,12 +606,26 @@ const items = ref([
                 icon: 'pi pi-trash',
                 label: '删除',
                 command: () => {
-                    toast.add({ severity: 'error', summary: '删除', detail: '删除功能', life: 3000 });
+                    deletePageItem(); // 使用统一的删除方法
                 }
             }
         ]
     }
 ]);
+
+// 缩放功能
+const zoomIn = () => {
+    const newScale = Math.min(5, transformRef.value.scale * 1.2);
+    transformRef.value.scale = newScale;
+    initCanvas();
+};
+
+const zoomOut = () => {
+    const newScale = Math.max(0.1, transformRef.value.scale / 1.2);
+    transformRef.value.scale = newScale;
+    initCanvas();
+};
+
 // 事件处理函数
 const eventHandlers = {
     // 画布拖拽
@@ -666,6 +722,18 @@ const eventHandlers = {
                 case 'v':
                     e.preventDefault();
                     pasteElement();
+                    break;
+                case 'z':
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        handleRedo();
+                    } else {
+                        handleUndo();
+                    }
+                    break;
+                case 'y':
+                    e.preventDefault();
+                    handleRedo();
                     break;
             }
         }
@@ -826,7 +894,6 @@ const initializeEvents = () => {
     ]);
 
     //点击事件
-
     eventManager.addEventListeners([
         {
             element: containerRef.value,
@@ -926,8 +993,10 @@ const pasteElement = () => {
         }
     });
     pages.value.push(...newElements);
+
+    // 添加历史记录
+    addHistory();
     refreshMinimap();
-    storageIndexDB.saveData(pages.value, "whiteboard-pages");
 };
 
 const deletePageItem = () => {
@@ -942,7 +1011,9 @@ const deletePageItem = () => {
             rectInfoList.value.delete(key);
         }
     });
-    storageIndexDB.saveData(pages.value, "whiteboard-pages");
+
+    // 添加历史记录
+    addHistory();
 };
 
 // 小地图功能
@@ -1158,5 +1229,9 @@ onUnmounted(() => {
   opacity: 1 !important;
 }
 
-/* 经过的时候显示浮动按钮 */
+/* 按钮禁用样式 */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 </style>

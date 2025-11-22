@@ -84,9 +84,9 @@ const init = () => {
     // 创建有色阴影
     shadowFilter
       .append("feDropShadow")
-      .attr("dx", 4)
-      .attr("dy", 4)
-      .attr("stdDeviation", 5)
+      // .attr("dx", 4)
+      // .attr("dy", 4)
+      .attr("stdDeviation", 8)
       .attr("flood-color", fillColor) // 使用与填充色相同的颜色
       .attr("flood-opacity", 1); // 降低不透明度
 
