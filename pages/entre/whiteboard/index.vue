@@ -94,11 +94,13 @@
       <Button
         icon="pi pi-chevron-left"
         class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
+        @click="historyStore.undo()"
       />
       <!-- 历史记录前进  -->
       <Button
         icon="pi pi-chevron-right"
         class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
+        @click="historyStore.redo()"
       />
 
       <div class="bg-black/70 rounded text-xs flex items-center justify-center gap-1">
@@ -236,6 +238,9 @@ import type { AreaPoint, MenuItem, RectInfo, WhithBoardItemProps as WhithBoardPr
 import { useEventManager } from '~/server/DomEvent';
 import BoardItem from '~/components/Board/BoardItem.vue';
 import BoardLeft from '~/components/Board/BoardLeft.vue';
+import { useHistoryStore } from '~/store/HistoryStore';
+
+const historyStore = useHistoryStore();
 const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
 // DOM 引用
 const containerRef = ref<HTMLElement | null>(null);
@@ -1065,6 +1070,8 @@ onMounted(() => {
     storageIndexDB.getData("whiteboard-pages").then((data) => {
         console.log("读取到的数据:", data);
         getAllDomPoint();
+        //初始化历史系统
+        historyStore.initHistory(data || pages.value);
     });
 
     // 初始化事件
@@ -1083,6 +1090,7 @@ onMounted(() => {
         storageIndexDB.saveData(pages.value, "whiteboard-pages");
         storageIndexDB.close();
     });
+
 });
 
 // 组件卸载时自动清理所有事件

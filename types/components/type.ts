@@ -1,25 +1,25 @@
+// ~/types/components/type.ts
 export interface ShapesProps {
   width?: number;
   height?: number;
-  shape?: Shape;
-  margin?: Margin;
-  data?: any;
-  tyep?: "primary" | "success" | "warning" | "danger" | "info";
+  shape?: string;
+  margin?: { top: number; right: number; bottom: number; left: number };
+  data?: Array<{ x: number; y: number }>;
+  type?: string; // 添加这一行
   text?: string;
-  textAlign?: "left" | "center" | "right";
+  textAlign?: string;
   textColor?: string;
   textSize?: number;
-  textWeight?: number;
+  textWeight?: number | string;
   cy?: number;
   cx?: number;
   r?: number;
-  x?: number;
   y?: number;
+  x?: number;
   color?: string;
   size?: number;
   boxshow?: boolean;
 }
-
 type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie";
 export interface Margin{
   top: number

@@ -3,6 +3,9 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   pages: true,
   modules: ["@vueuse/nuxt", "@pinia/nuxt", "@primevue/nuxt-module"],
+  pinia: {
+    autoImports: ['defineStore'], // 自动引入 defineStore
+  },
   app: {
     head: {
       title: "Daisy Editor",

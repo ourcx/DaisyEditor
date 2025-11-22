@@ -6,7 +6,7 @@
 import { ref, onMounted, watch } from "vue";
 import { select } from "d3-selection";
 import { arc, pie } from "d3-shape";
-import { curveBasis } from "d3-shape";
+import { curveBasis, curveBasisClosed } from "d3-shape";
 import { line } from "d3-shape";
 import type { ShapesProps } from "~/types/components/type";
 
@@ -15,8 +15,8 @@ definePageMeta({
 });
 
 const props = withDefaults(defineProps<ShapesProps>(), {
-  width: 150,
-  height: 150,
+  width: 200,
+  height: 200,
   shape: "circle",
   margin: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
   data: () => [
@@ -37,9 +37,9 @@ const props = withDefaults(defineProps<ShapesProps>(), {
   r: 50,
   y: 50,
   x: 50,
-  color: "#69b3a2",
+  color: "#bcecd4",
   size: 20,
-  boxshow: false,
+  boxshow: true, // 默认开启有色阴影
 });
 
 const shapeContainer = ref<HTMLElement | null>(null);
@@ -56,71 +56,49 @@ const init = () => {
     .attr("height", props.height)
     .attr("viewBox", `0 0 ${props.width} ${props.height}`)
     .attr("preserveAspectRatio", "xMidYMid meet");
-  // 添加阴影滤镜定义
+
+  // 主颜色和边框颜色
+  const fillColor = props.color || "#bcecd4";
+  const strokeColor = "#2d5a3d"; // 深绿色边框
+  const strokeWidth = 2;
+
+  // 计算中心点和尺寸
+  const centerX = props.width / 2;
+  const centerY = props.height / 2;
+  const maxSize = Math.min(props.width, props.height);
+  const r = Math.min(props.width - 20, props.height - 20) / 2;
+
+  // 只有当 boxshow 为 true 时才添加有色阴影滤镜定义
   if (props.boxshow) {
     const defs = svg.append("defs");
 
-    // 主阴影滤镜
-    const filter = defs
+    // 有色阴影滤镜 - 使用与填充色相匹配的颜色
+    const shadowFilter = defs
       .append("filter")
-      .attr("id", "shadow")
-      .attr("x", "-20%")
-      .attr("y", "-20%")
-      .attr("width", "140%")
-      .attr("height", "140%");
-
-    // 创建阴影效果
-    filter
-      .append("feDropShadow")
-      .attr("dx", 0)
-      .attr("dy", 2)
-      .attr("stdDeviation", 3)
-      .attr("flood-color", "rgba(0,0,0,0.3)")
-      .attr("flood-opacity", 0.6);
-
-    // 柔和发光效果滤镜
-    const glowFilter = defs
-      .append("filter")
-      .attr("id", "glow")
+      .attr("id", "colored-shadow")
       .attr("x", "-50%")
       .attr("y", "-50%")
       .attr("width", "200%")
       .attr("height", "200%");
 
-    glowFilter
-      .append("feGaussianBlur")
-      .attr("in", "SourceGraphic")
-      .attr("stdDeviation", 4)
-      .attr("result", "blur");
+    // 创建有色阴影
+    shadowFilter
+      .append("feDropShadow")
+      .attr("dx", 4)
+      .attr("dy", 4)
+      .attr("stdDeviation", 5)
+      .attr("flood-color", fillColor) // 使用与填充色相同的颜色
+      .attr("flood-opacity", 1); // 降低不透明度
 
-    glowFilter
-      .append("feFlood")
-      .attr("flood-color", props.color)
-      .attr("flood-opacity", 0.3)
-      .attr("result", "glowColor");
-
-    glowFilter
-      .append("feComposite")
-      .attr("in", "glowColor")
-      .attr("in2", "blur")
-      .attr("operator", "in")
-      .attr("result", "softGlow");
-
-    glowFilter
-      .append("feMerge")
-      .selectAll("feMergeNode")
-      .data(["softGlow", "SourceGraphic"])
-      .enter()
-      .append("feMergeNode")
-      .attr("in", (d) => d);
+    // 可选：添加一个微妙的黑色阴影作为底色，增强立体感
+    shadowFilter
+      .append("feDropShadow")
+      .attr("dx", 1)
+      .attr("dy", 2)
+      .attr("stdDeviation", 3)
+      .attr("flood-color", "#333333")
+      .attr("flood-opacity", 0.3);
   }
-
-  // 计算中心点
-  const centerX = props.width / 2;
-  const centerY = props.height / 2;
-  const maxSize = Math.min(props.width, props.height);
-  // 计算r
-  const r = Math.min(props.width - 10, props.height - 10) / 2;
 
   switch (props.shape) {
     case "circle":
@@ -129,68 +107,64 @@ const init = () => {
         .attr("cx", centerX)
         .attr("cy", centerY)
         .attr("r", r)
-        .attr("stroke", props.boxshow ? "rgba(16, 185, 129, 0.8)" : "black")
-        .attr("fill", props.color)
-        .attr("fill-opacity", props.boxshow ? 0.7 : 1)
-        .attr("stroke-width", 5)
-        .attr("stroke-opacity", 0.5);
+        .attr("fill", fillColor)
+        .attr("stroke", strokeColor)
+        .attr("stroke-width", strokeWidth);
 
-      // 应用阴影效果
+      // 只有当 boxshow 为 true 时才应用有色阴影
       if (props.boxshow) {
-        circle.attr("filter", "url(#shadow)");
-        // 可选：添加发光效果
-        // circle.attr("filter", "url(#glow)");
-        // 或者组合效果
-        // circle.attr("filter", "url(#shadow) url(#glow)");
+        circle.attr("filter", "url(#colored-shadow)");
       }
       break;
 
     case "Rect":
+      const rectSize = Math.min(props.width, props.height) * 0.7;
       const rect = svg
         .append("rect")
-        .attr("x", centerX - (props.width * 0.8) / 2)
-        .attr("y", centerY - (props.height * 0.8) / 2)
-        .attr("width", props.width * 0.8)
-        .attr("height", props.height * 0.8)
-        .attr("stroke", props.boxshow ? "rgba(16, 185, 129, 0.8)" : "black")
-        .attr("fill", props.color)
-        .attr("fill-opacity", props.boxshow ? 0.7 : 1)
-        .attr("stroke-width", props.boxshow ? 2 : 1)
-        .attr("stroke-dasharray", props.boxshow ? "4, 4" : "none");
+        .attr("x", centerX - rectSize / 2)
+        .attr("y", centerY - rectSize / 2)
+        .attr("width", rectSize)
+        .attr("height", rectSize)
+        .attr("fill", fillColor)
+        .attr("stroke", strokeColor)
+        .attr("stroke-width", strokeWidth);
 
       if (props.boxshow) {
-        rect.attr("filter", "url(#shadow)");
+        rect.attr("filter", "url(#colored-shadow)");
       }
       break;
 
     case "Line":
       const lineElement = svg
         .append("line")
-        .attr("x1", centerX - maxSize / 2)
+        .attr("x1", centerX - maxSize * 0.4)
         .attr("y1", centerY)
-        .attr("x2", centerX + maxSize / 2)
+        .attr("x2", centerX + maxSize * 0.4)
         .attr("y2", centerY)
-        .attr("stroke", props.color || "black")
-        .attr("stroke-width", 2);
+        .attr("stroke", fillColor)
+        .attr("stroke-width", 4)
+        .attr("stroke-linecap", "round");
 
       if (props.boxshow) {
-        lineElement.attr("filter", "url(#shadow)");
+        lineElement.attr("filter", "url(#colored-shadow)");
       }
       break;
 
     case "Text":
-      const text = svg
+      const textElement = svg
         .append("text")
         .attr("x", centerX)
         .attr("y", centerY)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
-        .attr("fill", props.color || "black")
-        .style("font-size", props.size + "px")
+        .attr("fill", strokeColor)
+        .style("font-size", `${props.textSize}px`)
+        .style("font-weight", props.textWeight)
+        .style("font-family", "system-ui, sans-serif")
         .text(props.text || "示例文本");
 
       if (props.boxshow) {
-        text.attr("filter", "url(#shadow)");
+        textElement.attr("filter", "url(#colored-shadow)");
       }
       break;
 
@@ -209,12 +183,13 @@ const init = () => {
         .append("path")
         .datum(adjustedData)
         .attr("d", curveFunc)
-        .attr("stroke", props.color || "black")
+        .attr("stroke", fillColor)
         .attr("fill", "none")
-        .attr("stroke-width", 2);
+        .attr("stroke-width", 3)
+        .attr("stroke-linecap", "round");
 
       if (props.boxshow) {
-        curve.attr("filter", "url(#shadow)");
+        curve.attr("filter", "url(#colored-shadow)");
       }
       break;
     }
@@ -225,21 +200,23 @@ const init = () => {
         y: (point.y / 120) * props.height * 0.8 + props.height * 0.1,
       }));
 
-      const curveFunc = line<{ x: number; y: number }>()
-        .curve(curveBasis)
+      // 创建区域生成器
+      const areaFunc = line<{ x: number; y: number }>()
+        .curve(curveBasisClosed)
         .x((d: any) => d.x)
         .y((d: any) => d.y);
 
+      const areaPath = areaFunc(adjustedData);
+
       const area = svg
         .append("path")
-        .datum(adjustedData)
-        .attr("d", curveFunc)
-        .attr("stroke", "black")
-        .attr("fill", props.color)
-        .attr("stroke-width", 2);
+        .attr("d", areaPath)
+        .attr("stroke", strokeColor)
+        .attr("fill", fillColor)
+        .attr("stroke-width", strokeWidth);
 
       if (props.boxshow) {
-        area.attr("filter", "url(#shadow)");
+        area.attr("filter", "url(#colored-shadow)");
       }
       break;
     }
@@ -247,8 +224,8 @@ const init = () => {
     case "Arc": {
       const arcData = {
         startAngle: 0,
-        endAngle: Math.PI * 1.5,
-        innerRadius: maxSize / 3,
+        endAngle: Math.PI * 1.8,
+        innerRadius: maxSize / 4,
         outerRadius: maxSize / 2,
       };
 
@@ -258,10 +235,12 @@ const init = () => {
         .append("path")
         .attr("transform", `translate(${centerX},${centerY})`)
         .attr("d", arcGenerator(arcData) as string)
-        .attr("fill", props.color);
+        .attr("fill", fillColor)
+        .attr("stroke", strokeColor)
+        .attr("stroke-width", strokeWidth);
 
       if (props.boxshow) {
-        arcElement.attr("filter", "url(#shadow)");
+        arcElement.attr("filter", "url(#colored-shadow)");
       }
       break;
     }
@@ -280,7 +259,7 @@ watch(
     props.color,
     props.data,
     props.text,
-    props.boxshow,
+    props.boxshow, // 监听 boxshow 的变化
   ],
   () => {
     init();
@@ -300,7 +279,7 @@ onMounted(() => {
   align-items: center;
   width: 100%;
   height: 100%;
-  transition: all 0.3s ease;
+  background: transparent;
 }
 
 .shape-container svg {
