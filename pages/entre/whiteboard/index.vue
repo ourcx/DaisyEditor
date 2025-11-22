@@ -1,6 +1,7 @@
 <template>
+  <Toast position="top-center" />
   <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu">
-    <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" />
+    <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" class="z-dialog" />
     <div class="grid-bg" :style="gridStyle"></div>
     <div ref="canvasRef" class="canvas" :style="canvasStyle">
       <div
@@ -89,7 +90,9 @@
 
     <canvas id="canvas" class="canvas"></canvas>
 
-    <div class="fixed bottom-4 right-4 text-white flex items-center justify-center gap-2">
+    <div
+      class="fixed bottom-4 right-4 text-white flex items-center justify-center gap-2 z-bar"
+    >
       <!-- 历史记录撤回  -->
       <Button
         icon="pi pi-chevron-left"
@@ -126,7 +129,7 @@
       <Button @click="toggleGuides" class="">辅助线开关</Button>
     </div>
 
-    <BoardLeft />
+    <BoardLeft class="z-dialog" id="boardLeft" />
     <!-- 小地图区域 -->
     <div
       v-if="isMinimapVisible"
@@ -243,6 +246,7 @@ import { useEventManager } from '~/server/DomEvent';
 import BoardItem from '~/components/Board/BoardItem.vue';
 import BoardLeft from '~/components/Board/BoardLeft.vue';
 import { useHistoryStore } from '~/store/HistoryStore';
+import { useToast } from 'primevue/usetoast';
 
 const historyStore = useHistoryStore();
 const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
@@ -259,7 +263,7 @@ const pages = ref<WhithBoardProps[]>([
     { rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
     { rect: { x: -300, y: 400, width: 200, height: 200 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
 ]);
-
+const WHITEBOARDPAGES = "whiteboard-pages"
 const isGuide = ref(true);
 const isMinimapVisible = ref(true);
 const minimapZoom = ref(0.1);
@@ -269,9 +273,9 @@ const highRectList = ref<Set<string>>(new Set());
 const contextMenuRef = ref()
 const menuItems: MenuItem[] = [
     {
-        key: 'edit',
-        label: '编辑',
-        icon: 'Edit',
+        key: 'copy',
+        label: '粘贴',
+        icon: 'EditCopy',
         handler: () => { }
     },
     {
@@ -279,6 +283,54 @@ const menuItems: MenuItem[] = [
         label: '删除',
         icon: 'Delete',
         handler: () => { }
+    },
+    {
+        label: '网格',
+        icon: 'Grid',
+        handler: () => {
+            toggleGuides();
+        },
+        key: 'grid'
+    },
+    {
+        label: '放大',
+        icon: 'ZoomIn',
+        handler: () => {
+            zoomIn();
+        },
+        key: 'zoom-in'
+    },
+    {
+        label: '缩小',
+        icon: 'ZoomOut',
+        handler: () => {
+            zoomOut();
+        },
+        key: 'zoom-out'
+    },
+    {
+        label: '重置',
+        icon: 'Refresh',
+        handler: () => {
+            eventHandlers.reset();
+        },
+        key: 'reset'
+    },
+    {
+        label: '隐藏/显示导航地图',
+        icon: 'Minimap',
+        handler: () => {
+            toggleMinimap();
+        },
+        key: 'minimap'
+    },
+    {
+        label: '保存',
+        icon: 'Save',
+        handler: () => {
+            storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+        },
+        key: 'save'
     }
 ]
 
@@ -386,14 +438,14 @@ const floatingMenuStyle = computed<CSSProperties>(() => ({
 const addHistory = () => {
     // 替换原第387行
     historyStore.addHistory(JSON.parse(JSON.stringify(pages.value)));
-    storageIndexDB.saveData(pages.value, "whiteboard-pages");
+    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
 };
 
 const handleUndo = () => {
     const previousState = historyStore.undo();
     if (previousState) {
         pages.value = JSON.parse(JSON.stringify(previousState));
-        storageIndexDB.saveData(pages.value, "whiteboard-pages");
+        storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
         getAllDomPoint();
         refreshMinimap();
         highRectList.value.clear();
@@ -404,7 +456,7 @@ const handleRedo = () => {
     const nextState = historyStore.redo();
     if (nextState) {
         pages.value = JSON.parse(JSON.stringify(nextState));
-        storageIndexDB.saveData(pages.value, "whiteboard-pages");
+        storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
         getAllDomPoint();
         refreshMinimap();
         highRectList.value.clear();
@@ -692,6 +744,12 @@ const eventHandlers = {
         }
     },
 
+    //重置画布
+    reset(){
+        transformRef.value = { x: 0, y: 0, scale: 1 };
+    },
+
+
     // 键盘事件
     handleKeyDown(e: KeyboardEvent) {
         switch (e.code) {
@@ -704,13 +762,20 @@ const eventHandlers = {
             case 'KeyR':
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    transformRef.value = { x: 0, y: 0, scale: 1 };
+                    this.reset();
                 }
                 break;
             case 'ControlLeft':
             case 'ControlRight':
                 keyboardState.ctrlPressed = true;
                 break;
+            //保存按钮
+            case 'KeyS':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+                    toast.add({ severity: 'success', summary: '保存', detail: '白板内容已保存', life: 2000 });
+                }
         }
 
         // 复制粘贴删除
@@ -906,6 +971,7 @@ const initializeEvents = () => {
 // 工具函数
 const toggleGuides = () => {
     isGuide.value = !isGuide.value;
+    toast.add({ severity: 'info', summary: '辅助线', detail: isGuide.value ? '已显示辅助线' : '已隐藏辅助线', life: 2000 });
 };
 
 const initCanvas = () => {
@@ -1116,6 +1182,9 @@ const extractMinimap = () => {
         .floating-trigger {
             opacity: 1 !important;
         }
+        #boardLeft{
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -1138,7 +1207,7 @@ const extractMinimap = () => {
 // 生命周期
 onMounted(() => {
     // 数据读取
-    storageIndexDB.getData("whiteboard-pages").then((data) => {
+    storageIndexDB.getData(WHITEBOARDPAGES).then((data) => {
         console.log("读取到的数据:", data);
         getAllDomPoint();
         //初始化历史系统
@@ -1158,7 +1227,7 @@ onMounted(() => {
 
     // 添加存储清理
     eventManager.addCleanup(() => {
-        storageIndexDB.saveData(pages.value, "whiteboard-pages");
+        storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
         storageIndexDB.close();
     });
 
