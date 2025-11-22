@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<ShapesProps>(), {
   x: 50,
   color: "#bcecd4",
   size: 20,
-  boxshow: true, // 默认开启有色阴影
+  boxshow: true,
 });
 
 const shapeContainer = ref<HTMLElement | null>(null);
@@ -59,7 +59,7 @@ const init = () => {
 
   // 主颜色和边框颜色
   const fillColor = props.color || "#bcecd4";
-  const strokeColor = "#2d5a3d"; // 深绿色边框
+  const strokeColor = "#2d5a3d";
   const strokeWidth = 2;
 
   // 计算中心点和尺寸
@@ -68,11 +68,207 @@ const init = () => {
   const maxSize = Math.min(props.width, props.height);
   const r = Math.min(props.width - 20, props.height - 20) / 2;
 
-  // 只有当 boxshow 为 true 时才添加有色阴影滤镜定义
+  // 添加框选线组
+  const selectionGroup = svg.append("g")
+    .attr("class", "selection-group")
+    .style("display", props.boxshow ? "block" : "none");
+
+  // 框选线样式
+  const selectionStyle = {
+    stroke: "#1890ff",
+    strokeWidth: 1,
+    strokeDasharray: "5,5",
+    fill: "none"
+  };
+
+  // 控制点样式
+  const controlPointStyle = {
+    fill: "#1890ff",
+    stroke: "#fff",
+    strokeWidth: 1,
+    r: 4,
+    cursor: "pointer"
+  };
+
+  let currentShape: any = null;
+  let currentBBox: any = null;
+
+  const updateSelectionBox = (shape: any) => {
+    if (!shape || !props.boxshow) return;
+
+    currentShape = shape;
+    const bbox = shape.node().getBBox();
+    currentBBox = bbox;
+
+    // 添加一些边距
+    const padding = 8;
+    const selectionX = bbox.x - padding;
+    const selectionY = bbox.y - padding;
+    const selectionWidth = bbox.width + padding * 2;
+    const selectionHeight = bbox.height + padding * 2;
+
+    // 清除之前的框选线
+    selectionGroup.selectAll("*").remove();
+
+    // 绘制框选矩形
+    selectionGroup.append("rect")
+      .attr("x", selectionX)
+      .attr("y", selectionY)
+      .attr("width", selectionWidth)
+      .attr("height", selectionHeight)
+      .attr("class", "selection-rect")
+      .style("stroke", selectionStyle.stroke)
+      .style('stroke-width', selectionStyle.strokeWidth)
+      .style("fill", selectionStyle.fill)
+      .style("pointer-events", "none")
+      .attr("fill", "none")
+    // 绘制控制点（8个方向）
+    const controlPoints = [
+      // 四个角
+      { x: selectionX, y: selectionY, cursor: "nw-resize" },
+      { x: selectionX + selectionWidth, y: selectionY, cursor: "ne-resize" },
+      { x: selectionX, y: selectionY + selectionHeight, cursor: "sw-resize" },
+      { x: selectionX + selectionWidth, y: selectionY + selectionHeight, cursor: "se-resize" },
+      // 四条边中点
+      { x: selectionX + selectionWidth / 2, y: selectionY, cursor: "n-resize" },
+      { x: selectionX + selectionWidth, y: selectionY + selectionHeight / 2, cursor: "e-resize" },
+      { x: selectionX + selectionWidth / 2, y: selectionY + selectionHeight, cursor: "s-resize" },
+      { x: selectionX, y: selectionY + selectionHeight / 2, cursor: "w-resize" }
+    ];
+
+    selectionGroup.selectAll(".control-point")
+      .data(controlPoints)
+      .enter()
+      .append("circle")
+      .attr("class", "control-point")
+      .attr("cx", (d: any) => d.x)
+      .attr("cy", (d: any) => d.y)
+      .attr("r", controlPointStyle.r)
+      .attr("fill", controlPointStyle.fill)
+      .attr("stroke", controlPointStyle.stroke)
+      .attr("stroke-width", controlPointStyle.strokeWidth)
+      .style("cursor", (d: any) => d.cursor);
+
+    // 添加鼠标事件
+    addSelectionEvents(selectionGroup, selectionX, selectionY, selectionWidth, selectionHeight);
+  };
+
+  const addSelectionEvents = (group: any, x: number, y: number, width: number, height: number) => {
+    let isDragging = false;
+    let dragType: string | null = null;
+    let startX: number, startY: number;
+    let startWidth: number, startHeight: number;
+    let startShapeX: number, startShapeY: number;
+
+    // 框选矩形拖动事件
+    group.select(".selection-rect")
+      .on("mousedown", function (event: MouseEvent) {
+        isDragging = true;
+        dragType = "move";
+        startX = event.clientX;
+        startY = event.clientY;
+        startShapeX = x;
+        startShapeY = y;
+        event.stopPropagation();
+      });
+
+    // 控制点拖动事件
+    group.selectAll(".control-point")
+      .on("mousedown", function (event: MouseEvent, d: any) {
+        isDragging = true;
+        dragType = d.cursor;
+        startX = event.clientX;
+        startY = event.clientY;
+        startWidth = width;
+        startHeight = height;
+        startShapeX = x;
+        startShapeY = y;
+        event.stopPropagation();
+      });
+
+    // 鼠标移动事件
+    svg.on("mousemove", function (event: MouseEvent) {
+      if (!isDragging || !dragType) return;
+
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+
+      switch (dragType) {
+        case "move":
+          // 移动整个形状
+          const newX = startShapeX + dx;
+          const newY = startShapeY + dy;
+          updateShapePosition(newX, newY, width, height);
+          break;
+
+        case "nw-resize":
+          updateShapePosition(startShapeX + dx, startShapeY + dy, startWidth - dx, startHeight - dy);
+          break;
+        case "ne-resize":
+          updateShapePosition(startShapeX, startShapeY + dy, startWidth + dx, startHeight - dy);
+          break;
+        case "sw-resize":
+          updateShapePosition(startShapeX + dx, startShapeY, startWidth - dx, startHeight + dy);
+          break;
+        case "se-resize":
+          updateShapePosition(startShapeX, startShapeY, startWidth + dx, startHeight + dy);
+          break;
+
+        case "n-resize":
+          updateShapePosition(startShapeX, startShapeY + dy, startWidth, startHeight - dy);
+          break;
+        case "s-resize":
+          updateShapePosition(startShapeX, startShapeY, startWidth, startHeight + dy);
+          break;
+        case "w-resize":
+          updateShapePosition(startShapeX + dx, startShapeY, startWidth - dx, startHeight);
+          break;
+        case "e-resize":
+          updateShapePosition(startShapeX, startShapeY, startWidth + dx, startHeight);
+          break;
+      }
+    });
+
+    // 鼠标释放事件
+    svg.on("mouseup", function () {
+      isDragging = false;
+      dragType = null;
+    });
+
+    const updateShapePosition = (newX: number, newY: number, newWidth: number, newHeight: number) => {
+      // 这里可以根据形状类型更新实际形状的位置和大小
+      // 由于不同形状的更新方式不同，这里只是示例
+      console.log("更新形状位置和大小:", { newX, newY, newWidth, newHeight });
+
+      // 更新框选线位置
+      selectionGroup.select(".selection-rect")
+        .attr("x", newX)
+        .attr("y", newY)
+        .attr("width", newWidth)
+        .attr("height", newHeight);
+
+      // 更新控制点位置
+      const updatedControlPoints = [
+        { x: newX, y: newY, cursor: "nw-resize" },
+        { x: newX + newWidth, y: newY, cursor: "ne-resize" },
+        { x: newX, y: newY + newHeight, cursor: "sw-resize" },
+        { x: newX + newWidth, y: newY + newHeight, cursor: "se-resize" },
+        { x: newX + newWidth / 2, y: newY, cursor: "n-resize" },
+        { x: newX + newWidth, y: newY + newHeight / 2, cursor: "e-resize" },
+        { x: newX + newWidth / 2, y: newY + newHeight, cursor: "s-resize" },
+        { x: newX, y: newY + newHeight / 2, cursor: "w-resize" }
+      ];
+
+      selectionGroup.selectAll(".control-point")
+        .data(updatedControlPoints)
+        .attr("cx", (d: any) => d.x)
+        .attr("cy", (d: any) => d.y);
+    };
+  };
+
+  // 原有的阴影滤镜定义
   if (props.boxshow) {
     const defs = svg.append("defs");
-
-    // 有色阴影滤镜 - 使用与填充色相匹配的颜色
     const shadowFilter = defs
       .append("filter")
       .attr("id", "colored-shadow")
@@ -81,16 +277,12 @@ const init = () => {
       .attr("width", "200%")
       .attr("height", "200%");
 
-    // 创建有色阴影
     shadowFilter
       .append("feDropShadow")
-      // .attr("dx", 4)
-      // .attr("dy", 4)
       .attr("stdDeviation", 8)
-      .attr("flood-color", fillColor) // 使用与填充色相同的颜色
-      .attr("flood-opacity", 1); // 降低不透明度
+      .attr("flood-color", fillColor)
+      .attr("flood-opacity", 1);
 
-    // 可选：添加一个微妙的黑色阴影作为底色，增强立体感
     shadowFilter
       .append("feDropShadow")
       .attr("dx", 1)
@@ -111,9 +303,10 @@ const init = () => {
         .attr("stroke", strokeColor)
         .attr("stroke-width", strokeWidth);
 
-      // 只有当 boxshow 为 true 时才应用有色阴影
       if (props.boxshow) {
         circle.attr("filter", "url(#colored-shadow)");
+        // 延迟更新框选线，确保形状已渲染
+        setTimeout(() => updateSelectionBox(circle), 10);
       }
       break;
 
@@ -131,6 +324,7 @@ const init = () => {
 
       if (props.boxshow) {
         rect.attr("filter", "url(#colored-shadow)");
+        setTimeout(() => updateSelectionBox(rect), 10);
       }
       break;
 
@@ -147,6 +341,7 @@ const init = () => {
 
       if (props.boxshow) {
         lineElement.attr("filter", "url(#colored-shadow)");
+        setTimeout(() => updateSelectionBox(lineElement), 10);
       }
       break;
 
@@ -165,6 +360,7 @@ const init = () => {
 
       if (props.boxshow) {
         textElement.attr("filter", "url(#colored-shadow)");
+        setTimeout(() => updateSelectionBox(textElement), 10);
       }
       break;
 
@@ -190,6 +386,7 @@ const init = () => {
 
       if (props.boxshow) {
         curve.attr("filter", "url(#colored-shadow)");
+        setTimeout(() => updateSelectionBox(curve), 10);
       }
       break;
     }
@@ -200,7 +397,6 @@ const init = () => {
         y: (point.y / 120) * props.height * 0.8 + props.height * 0.1,
       }));
 
-      // 创建区域生成器
       const areaFunc = line<{ x: number; y: number }>()
         .curve(curveBasisClosed)
         .x((d: any) => d.x)
@@ -217,6 +413,7 @@ const init = () => {
 
       if (props.boxshow) {
         area.attr("filter", "url(#colored-shadow)");
+        setTimeout(() => updateSelectionBox(area), 10);
       }
       break;
     }
@@ -241,6 +438,7 @@ const init = () => {
 
       if (props.boxshow) {
         arcElement.attr("filter", "url(#colored-shadow)");
+        setTimeout(() => updateSelectionBox(arcElement), 10);
       }
       break;
     }
@@ -259,7 +457,7 @@ watch(
     props.color,
     props.data,
     props.text,
-    props.boxshow, // 监听 boxshow 的变化
+    props.boxshow,
   ],
   () => {
     init();
@@ -285,5 +483,19 @@ onMounted(() => {
 .shape-container svg {
   display: block;
   margin: 0 auto;
+}
+
+/* 框选线样式 */
+.selection-rect {
+  pointer-events: all;
+}
+
+.control-point {
+  pointer-events: all;
+}
+
+.control-point:hover {
+  fill: #40a9ff;
+  r: 5;
 }
 </style>
