@@ -1,236 +1,143 @@
 <template>
-  <Toast position="top-center" />
-  <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu">
-    <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" class="z-dialog" />
-    <div class="grid-bg" :style="gridStyle"></div>
-    <div ref="canvasRef" class="canvas" :style="canvasStyle">
-      <div
-        v-for="(page, index) in pages"
-        :key="index"
-        :data-id="`id-key-${page.id}`"
-        class="absolute rounded-lg cursor-pointer select-none transition-all duration-200 page-item"
-        :style="{
-          top: page.rect.y + 'px',
-          left: page.rect.x + 'px',
-          pointerEvents: 'auto',
-          zIndex: 10,
-          width: page.rect.width + 'px',
-          height: page.rect.height + 'px',
-        }"
-        @click="handlePageClick($event, page)"
-      >
-        <BoardItem
-          :width="page.rect.width"
-          :height="page.rect.height"
-          :cx="page.rect.width"
-          :cy="page.rect.height"
-          :boxshow="highRectList.has(`id-key-${page.id}`)"
-        />
+    <BoardMeun class="z-dialog" id="boardMenu" :visible="doubleClickMenuState.visible"
+        :x="doubleClickMenuState.position.x" :y="doubleClickMenuState.position.y" />
+    <Toast position="top-center" />
+    <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu">
+        <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" class="z-dialog" />
+        <div class="grid-bg" :style="gridStyle"></div>
+        <div ref="canvasRef" class="canvas" :style="canvasStyle">
+            <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`"
+                class="absolute rounded-lg cursor-pointer select-none transition-all duration-200 page-item" :style="{
+                    top: page.rect.y + 'px',
+                    left: page.rect.x + 'px',
+                    pointerEvents: 'auto',
+                    zIndex: 10,
+                    width: page.rect.width + 'px',
+                    height: page.rect.height + 'px',
+                }" @click="handlePageClick($event, page)">
+                <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width"
+                    :cy="page.rect.height" :boxshow="highRectList.has(`id-key-${page.id}`)" />
 
-        <!-- 浮动菜单触发按钮 -->
-        <Button
-          icon="pi pi-equals"
-          severity="secondary"
-          variant="text"
-          raised
-          rounded
-          aria-label="Bookmark"
-          class="floating-trigger"
-          @click.stop="toggleFloatingMenu($event, page)"
-          :pt="{
-            root: {
-              style: {
-                position: 'absolute',
-                top: '4px',
-                right: '4px',
-                width: '32px',
-                height: '32px',
-                background: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '6px',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                zIndex: 20,
-                opacity: 0,
-                transition: 'opacity 0.2s ease',
-              },
-            },
-          }"
-        >
-        </Button>
-      </div>
-    </div>
-
-    <!-- 使用Teleport将浮动菜单渲染到body -->
-    <Teleport to="body">
-      <div
-        v-if="floatingMenuVisible"
-        class="global-floating-menu"
-        :style="floatingMenuStyle"
-        @click.stop
-      >
-        <SpeedDial
-          :model="items"
-          direction="up"
-          :transitionDelay="80"
-          :visible="floatingMenuVisible"
-          @hide="closeFloatingMenu"
-        >
-          <template #item="{ item }">
-            <div
-              class="flex flex-col items-center justify-between gap-2 p-2 rounded w-10 cursor-pointer hover:bg-emerald-200 hover:text-gray-700"
-              @click="handleActionClick(item)"
-              :title="typeof item.label === 'function' ? item.label() : item.label"
-            >
-              <span :class="item.icon" class="p-2" />
+                <!-- 浮动菜单触发按钮 -->
+                <Button icon="pi pi-equals" severity="secondary" variant="text" raised rounded aria-label="Bookmark"
+                    class="floating-trigger" @click.stop="toggleFloatingMenu($event, page)" :pt="{
+                        root: {
+                            style: {
+                                position: 'absolute',
+                                top: '4px',
+                                right: '4px',
+                                width: '32px',
+                                height: '32px',
+                                background: 'white',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '6px',
+                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                                zIndex: 20,
+                                opacity: 0,
+                                transition: 'opacity 0.2s ease',
+                            },
+                        },
+                    }">
+                </Button>
             </div>
-          </template>
-        </SpeedDial>
-      </div>
-    </Teleport>
-
-    <canvas id="canvas" class="canvas"></canvas>
-
-    <div
-      class="fixed bottom-4 right-4 text-white flex items-center justify-center gap-2 z-bar"
-    >
-      <!-- 历史记录撤回  -->
-      <Button
-        icon="pi pi-chevron-left"
-        class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
-        @click="handleUndo"
-        :disabled="!canUndo"
-      />
-      <!-- 历史记录前进  -->
-      <Button
-        icon="pi pi-chevron-right"
-        class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
-        @click="handleRedo"
-        :disabled="!canRedo"
-      />
-
-      <div class="bg-black/70 rounded text-xs flex items-center justify-center gap-1">
-        <!-- 放大  -->
-        <Button
-          icon="pi pi-search-plus"
-          class="hover:bg-black/80 rounded text-white bg-transparent"
-          @click="zoomIn"
-        />
-        <div class="pl-1 pr-1">
-          Scale: {{ transformRef.scale.toFixed(2) }} | X:
-          {{ transformRef.x.toFixed(0) }} | Y:
-          {{ transformRef.y.toFixed(0) }}
         </div>
-        <Button
-          icon="pi pi-search-minus"
-          class="hover:bg-black/80 rounded text-white bg-transparent"
-          @click="zoomOut"
-        />
-      </div>
-      <Button @click="toggleGuides" class="">辅助线开关</Button>
-    </div>
 
-    <BoardLeft class="z-dialog" id="boardLeft" />
-    <!-- 小地图区域 -->
-    <div
-      v-if="isMinimapVisible"
-      class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96"
-    >
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-sm font-medium text-gray-700">导航地图</span>
-        <div class="flex space-x-1">
-          <button
-            @click="zoomInMinimap"
-            class="p-1 rounded hover:bg-gray-200 text-gray-600"
-            title="放大"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4v16m8-8H4"
-              ></path>
-            </svg>
-          </button>
-          <button
-            @click="zoomOutMinimap"
-            class="p-1 rounded hover:bg-gray-200 text-gray-600"
-            title="缩小"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M20 12H4"
-              ></path>
-            </svg>
-          </button>
-          <button
-            @click="refreshMinimap"
-            class="p-1 rounded hover:bg-gray-200 text-gray-600"
-            title="刷新"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              ></path>
-            </svg>
-          </button>
-          <button
-            @click="toggleMinimap"
-            class="p-1 rounded hover:bg-gray-200 text-gray-600"
-            title="隐藏"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              ></path>
-            </svg>
-          </button>
+        <!-- 使用Teleport将浮动菜单渲染到body -->
+        <Teleport to="body">
+            <div v-if="floatingMenuVisible" class="global-floating-menu" :style="floatingMenuStyle" @click.stop>
+                <SpeedDial :model="items" direction="up" :transitionDelay="80" :visible="floatingMenuVisible"
+                    @hide="closeFloatingMenu">
+                    <template #item="{ item }">
+                        <div class="flex flex-col items-center justify-between gap-2 p-2 rounded w-10 cursor-pointer hover:bg-emerald-200 hover:text-gray-700"
+                            @click="handleActionClick(item)"
+                            :title="typeof item.label === 'function' ? item.label() : item.label">
+                            <span :class="item.icon" class="p-2" />
+                        </div>
+                    </template>
+                </SpeedDial>
+            </div>
+        </Teleport>
+
+        <canvas id="canvas" class="canvas"></canvas>
+
+        <div class="fixed bottom-4 right-4 text-white flex items-center justify-center gap-2 z-bar">
+            <!-- 历史记录撤回  -->
+            <Button icon="pi pi-chevron-left" class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
+                @click="handleUndo" :disabled="!canUndo" />
+            <!-- 历史记录前进  -->
+            <Button icon="pi pi-chevron-right" class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
+                @click="handleRedo" :disabled="!canRedo" />
+
+            <div class="bg-black/70 rounded text-xs flex items-center justify-center gap-1">
+                <!-- 放大  -->
+                <Button icon="pi pi-search-plus" class="hover:bg-black/80 rounded text-white bg-transparent"
+                    @click="zoomIn" />
+                <div class="pl-1 pr-1">
+                    Scale: {{ transformRef.scale.toFixed(2) }} | X:
+                    {{ transformRef.x.toFixed(0) }} | Y:
+                    {{ transformRef.y.toFixed(0) }}
+                </div>
+                <Button icon="pi pi-search-minus" class="hover:bg-black/80 rounded text-white bg-transparent"
+                    @click="zoomOut" />
+            </div>
+            <Button @click="toggleGuides" class="">辅助线开关</Button>
         </div>
-      </div>
 
-      <div
-        class="slider w-full relative border border-gray-200 rounded overflow-hidden bg-white"
-      >
-        <iframe
-          class="slider__content w-full h-full border-none"
-          ref="targetIframe"
-          sandbox="allow-same-origin"
-          @load="onIframeLoad"
-        />
+        <BoardLeft class="z-dialog" id="boardLeft" />
+        <!-- 小地图区域 -->
+        <div v-if="isMinimapVisible"
+            class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium text-gray-700">导航地图</span>
+                <div class="flex space-x-1">
+                    <button @click="zoomInMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="放大">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
+                            </path>
+                        </svg>
+                    </button>
+                    <button @click="zoomOutMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="缩小">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                        </svg>
+                    </button>
+                    <button @click="refreshMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="刷新">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                    </button>
+                    <button @click="toggleMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="隐藏">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
 
-        <!-- 视口指示器 -->
-        <div
-          class="absolute border-2 border-red-500 bg-red-200 bg-opacity-20 pointer-events-none transition-all duration-200"
-          :style="viewportIndicatorStyle"
-        ></div>
-      </div>
+            <div class="slider w-full relative border border-gray-200 rounded overflow-hidden bg-white">
+                <iframe class="slider__content w-full h-full border-none" ref="targetIframe" sandbox="allow-same-origin"
+                    @load="onIframeLoad" />
+
+                <!-- 视口指示器 -->
+                <div class="absolute border-2 border-red-500 bg-red-200 bg-opacity-20 pointer-events-none transition-all duration-200"
+                    :style="viewportIndicatorStyle"></div>
+            </div>
+        </div>
+        <!-- 显示小地图的按钮（当隐藏时） -->
+        <button v-else @click="toggleMinimap"
+            class="fixed top-4 right-4 p-2 bg-primary-500 text-white rounded-lg shadow-lg hover:bg-red-400 transition-colors"
+            title="显示导航地图">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7">
+                </path>
+            </svg>
+        </button>
     </div>
-    <!-- 显示小地图的按钮（当隐藏时） -->
-    <button
-      v-else
-      @click="toggleMinimap"
-      class="fixed top-4 right-4 p-2 bg-primary-500 text-white rounded-lg shadow-lg hover:bg-red-400 transition-colors"
-      title="显示导航地图"
-    >
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-        ></path>
-      </svg>
-    </button>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -247,6 +154,7 @@ import BoardItem from '~/components/Board/BoardItem.vue';
 import BoardLeft from '~/components/Board/BoardLeft.vue';
 import { useHistoryStore } from '~/store/HistoryStore';
 import { useToast } from 'primevue/usetoast';
+import BoardMeun from '~/components/Board/BoardMeun.vue';
 
 const historyStore = useHistoryStore();
 const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
@@ -363,6 +271,13 @@ const keyboardState = reactive({
     isSpacePressed: false,
     ctrlPressed: false
 });
+//双击菜单状态
+const doubleClickMenuState = reactive({
+    visible: false,
+    position: { x: 0, y: 0 },
+})
+//双击菜单事件监听
+
 
 // 浮动菜单状态
 const floatingMenuVisible = ref(false);
@@ -678,6 +593,7 @@ const zoomOut = () => {
     initCanvas();
 };
 
+
 // 事件处理函数
 const eventHandlers = {
     // 画布拖拽
@@ -745,7 +661,7 @@ const eventHandlers = {
     },
 
     //重置画布
-    reset(){
+    reset() {
         transformRef.value = { x: 0, y: 0, scale: 1 };
     },
 
@@ -823,6 +739,8 @@ const eventHandlers = {
 
     // 框选事件
     handleSelectionStart(e: MouseEvent) {
+        //关闭双击菜单
+        doubleClickMenuState.visible = false;
         if (interactionState.isDragging) return;
 
         highRectList.value.clear();
@@ -888,7 +806,17 @@ const eventHandlers = {
         if (targetIframe.value && targetIframe.value.contentDocument) {
             targetIframe.value.contentDocument.body.style.cursor = 'pointer';
         }
+    },
+    //双击屏幕弹出插入图形窗口
+
+    handleCanvasDoubleClick(e: MouseEvent) {
+        if (interactionState.isDragging) return;
+        if (interactionState.isSelecting) return;
+        doubleClickMenuState.visible = !doubleClickMenuState.visible;
+        doubleClickMenuState.position = { x: e.clientX, y: e.clientY };
     }
+
+
 };
 
 // 初始化事件管理器
@@ -964,8 +892,27 @@ const initializeEvents = () => {
             element: containerRef.value,
             type: 'click',
             handler: handleGlobalClick
+        },
+            //单击其他地方关闭双击菜单
+        {
+            element: document,
+            type: 'click',
+            handler: () => {
+                doubleClickMenuState.visible = false;
+            }
         }
     ]);
+
+    //监听双击事件？
+    eventManager.addEventListeners([
+        {
+            element: containerRef.value,
+            type: 'dblclick',
+            handler: eventHandlers.handleCanvasDoubleClick
+        }
+    ])
+
+
 };
 
 // 工具函数
@@ -1241,66 +1188,66 @@ onUnmounted(() => {
 
 <style scoped>
 .canvas-container {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  position: relative;
-  background: #f8f9fa;
-  touch-action: none;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    background: #f8f9fa;
+    touch-action: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .grid-bg {
-  pointer-events: none;
+    pointer-events: none;
 }
 
 .canvas {
-  z-index: 1;
+    z-index: 1;
 }
 
 .minimap {
-  z-index: 1000;
-  backdrop-filter: blur(8px);
+    z-index: 1000;
+    backdrop-filter: blur(8px);
 }
 
 .slider {
-  width: 100%;
-  height: 90%;
+    width: 100%;
+    height: 90%;
 }
 
 .slider__content {
-  width: 100%;
-  height: 100%;
-  background: white;
+    width: 100%;
+    height: 100%;
+    background: white;
 }
 
 .canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  user-select: none;
-  pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    user-select: none;
+    pointer-events: none;
 }
 
 /* 浮动菜单样式 */
 .global-floating-menu {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e5e7eb;
-  padding: 8px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e5e7eb;
+    padding: 8px;
 }
 
 /* 页面悬停时显示浮动按钮 */
 .page-item:hover .floating-trigger {
-  opacity: 1 !important;
+    opacity: 1 !important;
 }
 
 /* 按钮禁用样式 */
 button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 </style>
