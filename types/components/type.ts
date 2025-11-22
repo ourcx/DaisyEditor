@@ -1,5 +1,6 @@
 // ~/types/components/type.ts
 export interface ShapesProps {
+  id: number;
   width?: number;
   height?: number;
   shape?: string;
@@ -19,6 +20,8 @@ export interface ShapesProps {
   color?: string;
   size?: number;
   boxshow?: boolean;
+    position?: ShapePosition;
+  scale?: ShapeScale;
 }
 type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie";
 export interface Margin{
@@ -26,4 +29,13 @@ export interface Margin{
   right: number
   bottom: number
   left: number
+}
+export interface ShapePosition {
+  x: number;
+  y: number;
+}
+
+export interface ShapeScale {
+  width: number;
+  height: number;
 }

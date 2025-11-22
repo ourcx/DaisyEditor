@@ -16,7 +16,8 @@
                     height: page.rect.height + 'px',
                 }" @click="handlePageClick($event, page)">
                 <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width"
-                    :cy="page.rect.height" :boxshow="highRectList.has(`id-key-${page.id}`)" />
+                    :cy="page.rect.height" :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id"
+                    @update:position="handlePositionUpdate" @update:size="handleSizeUpdate" />
 
                 <!-- 浮动菜单触发按钮 -->
                 <Button icon="pi pi-equals" severity="secondary" variant="text" raised rounded aria-label="Bookmark"
@@ -593,7 +594,38 @@ const zoomOut = () => {
     initCanvas();
 };
 
+//元素控制
+const handlePositionUpdate = (newPosition: { x: number; y: number }, id: number) => {
+    pages.value = pages.value.map((page) => {
+        if (page.id === id) {
+            return {
+                ...page,
+                rect: {
+                    ...page.rect,
+                    x: newPosition.x,
+                    y: newPosition.y
+                }
+            }
+        }
+        return page;
+    })
+};
 
+const handleSizeUpdate = (newScale: { width: number; height: number }, id: number) => {
+    // pages.value = pages.value.map((page) => {
+    //     if (page.id === id) {
+    //         return {
+    //             ...page,
+    //             rect: {
+    //                 ...page.rect,
+    //                 width: page.rect.width * newScale.width,
+    //                 height: page.rect.height * newScale.height
+    //             }
+    //         }
+    //     }
+    //     return page;
+    // })
+};
 // 事件处理函数
 const eventHandlers = {
     // 画布拖拽
@@ -893,7 +925,7 @@ const initializeEvents = () => {
             type: 'click',
             handler: handleGlobalClick
         },
-            //单击其他地方关闭双击菜单
+        //单击其他地方关闭双击菜单
         {
             element: document,
             type: 'click',
