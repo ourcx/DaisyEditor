@@ -15,7 +15,10 @@ definePageMeta({
 });
 
 const emit = defineEmits<{
-  "update:size": [size: { width: number; height: number; scaleX: number; scaleY: number }, id: number];
+  "update:size": [
+    size: { width: number; height: number; scaleX: number; scaleY: number },
+    id: number
+  ];
 }>();
 
 // 定义 Props，使用你提供的接口
@@ -42,6 +45,8 @@ const props = withDefaults(defineProps<ShapesProps>(), {
   id: 0,
   scaleX: 1,
   scaleY: 1,
+  strokeColor: "#2d5a3d",
+  strokeWidth: 2,
 });
 
 const ID = `${props.id}-svg`;
@@ -119,8 +124,8 @@ const handleGlobalMouseMove = (event: MouseEvent) => {
     }
 
     // 计算新的尺寸
-    newWidth = dragState.startWidth + deltaWidth
-    newHeight = dragState.startHeight + deltaHeight
+    newWidth = dragState.startWidth + deltaWidth;
+    newHeight = dragState.startHeight + deltaHeight;
 
     // 计算缩放比例
     scaleX = newWidth / props.width;
@@ -134,51 +139,11 @@ const handleGlobalMouseMove = (event: MouseEvent) => {
       //宽高也要更新
       svgElement.style.width = `${newWidth}px`;
       svgElement.style.height = `${newHeight}px`;
-      // 实时更新选择框
-      updateSelectionBoxOnResize();
     }
 
     animationFrameId = null;
   });
 };
-
-// 修改 updateSelectionBoxOnResize
-const updateSelectionBoxOnResize = () => {
-  if (!selectionGroup || !currentShape) return;
-
-  // 获取原始尺寸的边界框（不考虑缩放）
-  const bbox = currentShape.node().getBBox();
-  const padding = 8;
-  const selectionX = bbox.x - padding;
-  const selectionY = bbox.y - padding;
-  const selectionWidth = bbox.width + padding * 2;
-  const selectionHeight = bbox.height + padding * 2;
-
-  // 更新选择框位置 - 使用原始坐标
-  selectionGroup.select(".selection-rect")
-    .attr("x", selectionX)
-    .attr("y", selectionY)
-    .attr("width", selectionWidth)
-    .attr("height", selectionHeight);
-
-  // 更新控制点位置
-  const controlPoints = [
-    { x: selectionX, y: selectionY },
-    { x: selectionX + selectionWidth, y: selectionY },
-    { x: selectionX, y: selectionY + selectionHeight },
-    { x: selectionX + selectionWidth, y: selectionY + selectionHeight },
-    { x: selectionX + selectionWidth / 2, y: selectionY },
-    { x: selectionX, y: selectionY + selectionHeight / 2 },
-    { x: selectionX + selectionWidth / 2, y: selectionY + selectionHeight },
-    { x: selectionX + selectionWidth, y: selectionY + selectionHeight / 2 }
-  ];
-
-  selectionGroup.selectAll(".control-point")
-    .data(controlPoints)
-    .attr("cx", (d: any) => d.x)
-    .attr("cy", (d: any) => d.y);
-};
-
 
 const handleGlobalMouseUp = () => {
   dragState.isResizing = false;
@@ -207,15 +172,13 @@ const init = () => {
   currentSvg = select((shapeContainer.value as unknown) as Element)
     .append("svg")
     .attr("class", ID)
-    .attr("width", props.width)  // 使用原始宽度
+    .attr("width", props.width) // 使用原始宽度
     .attr("height", props.height) // 使用原始高度
     .attr("viewBox", `0 0 ${props.width} ${props.height}`)
     .attr("preserveAspectRatio", "none")
     .style("overflow", "visible");
 
   const fillColor = props.color || "#bcecd4";
-  const strokeColor = "#2d5a3d";
-  const strokeWidth = 2;
   const centerX = props.width / 2;
   const centerY = props.height / 2;
   const r = Math.min(props.width - 20, props.height - 20) / 2;
@@ -230,7 +193,7 @@ const init = () => {
   console.log(scaleX, scaleY, "初始化的缩放比例");
   currentSvg.style("transform", `scale(${scaleX}, ${scaleY})`);
 
-  // 定义滤镜
+  // 定义滤镜 - 为所有形状定义，包括 Line
   if (props.boxshow) {
     const defs = currentSvg.append("defs");
     const shadowFilter = defs
@@ -265,35 +228,36 @@ const init = () => {
         .attr("cx", centerX)
         .attr("cy", centerY)
         .attr("r", r)
-        .attr("width", newWidth)
-        .attr("height", newHeight)
         .attr("fill", fillColor)
-        .attr("stroke", strokeColor)
-        .attr("stroke-width", strokeWidth);
+        .attr("stroke", props.strokeColor)
+        .attr("stroke-width", props.strokeWidth);
       break;
     case "Rect":
-      const rectW = newWidth * 0.8;
-      const rectH = newHeight * 0.8;
+      const rectW = props.width * 0.8;
+      const rectH = props.height * 0.8;
       currentShape = currentSvg
         .append("rect")
-        .attr("x", (newWidth - rectW) / 2)
-        .attr("y", (newHeight - rectH) / 2)
+        .attr("x", (props.width - rectW) / 2)
+        .attr("y", (props.height - rectH) / 2)
         .attr("width", rectW)
         .attr("height", rectH)
         .attr("fill", fillColor)
-        .attr("stroke", strokeColor)
-        .attr("stroke-width", strokeWidth);
+        .attr("stroke", props.strokeColor)
+        .attr("stroke-width", props.strokeWidth);
       break;
     case "Line":
+      // 修复 Line 绘制逻辑
       currentShape = currentSvg
         .append("line")
-        .attr("x1", 10)
+        .attr("x1", props.width * 0.1) // 使用比例而不是固定值
         .attr("y1", centerY)
-        .attr("x2", newWidth - 10)
+        .attr("x2", props.width * 0.9) // 使用比例而不是固定值
         .attr("y2", centerY)
         .attr("stroke", fillColor)
         .attr("stroke-width", 4)
-        .attr("stroke-linecap", "round");
+        .attr("stroke-linecap", "round")
+        .attr("stroke", props.strokeColor)
+        .attr("stroke-width", props.strokeWidth);
       break;
     case "Text":
       currentShape = currentSvg
@@ -302,7 +266,7 @@ const init = () => {
         .attr("y", centerY)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
-        .attr("fill", strokeColor)
+        .attr("fill", props.strokeColor)
         .style("font-size", `${props.textSize}px`)
         .style("font-weight", props.textWeight)
         .style("font-family", "system-ui, sans-serif")
@@ -311,9 +275,9 @@ const init = () => {
     case "Curve": {
       // 简单的曲线示例
       const curveData = [
-        { x: newWidth * 0.1, y: newHeight * 0.9 },
-        { x: newWidth * 0.5, y: newHeight * 0.1 },
-        { x: newWidth * 0.9, y: newHeight * 0.9 },
+        { x: props.width * 0.1, y: props.height * 0.9 },
+        { x: props.width * 0.5, y: props.height * 0.1 },
+        { x: props.width * 0.9, y: props.height * 0.9 },
       ];
       const curveFunc = line<{ x: number; y: number }>()
         .curve(curveBasis)
@@ -326,7 +290,9 @@ const init = () => {
         .attr("stroke", fillColor)
         .attr("fill", "none")
         .attr("stroke-width", 3)
-        .attr("stroke-linecap", "round");
+        .attr("stroke-linecap", "round")
+        .attr("stroke", props.strokeColor)
+        .attr("stroke-width", props.strokeWidth);
       break;
     }
     // ... 其他 case (Area, Arc, Pie) 依据同样逻辑处理 ...
@@ -340,7 +306,7 @@ const init = () => {
         .attr("fill", fillColor);
   }
 
-  // 应用滤镜并绘制选择框
+  // 应用滤镜并绘制选择框 - 确保 Line 也应用滤镜
   if (props.boxshow && currentShape) {
     currentShape.attr("filter", `url(#colored-shadow-${props.id})`);
     // 使用 nextTick 确保 DOM 渲染后再计算 BBox
@@ -386,9 +352,16 @@ const updateSelectionBox = (shape: any) => {
     }, // 右下
     { x: selectionX + selectionWidth / 2, y: selectionY, cursor: "n-resize" },
     { x: selectionX, y: selectionY + selectionHeight / 2, cursor: "w-resize" },
-    { x: selectionX + selectionWidth / 2, y: selectionY + selectionHeight, cursor: "s-resize" },
-    { x: selectionX + selectionWidth, y: selectionY + selectionHeight / 2, cursor: "e-resize" },
-
+    {
+      x: selectionX + selectionWidth / 2,
+      y: selectionY + selectionHeight,
+      cursor: "s-resize",
+    },
+    {
+      x: selectionX + selectionWidth,
+      y: selectionY + selectionHeight / 2,
+      cursor: "e-resize",
+    },
   ];
 
   // 3. 绘制控制点
@@ -421,7 +394,7 @@ const updateSelectionBox = (shape: any) => {
     // 使用当前的实际尺寸，而不是 props 的尺寸
     const svgElement = document.getElementsByClassName(ID)[0] as HTMLElement;
     if (svgElement) {
-      dragState.startWidth = newWidth;  // 使用当前 newWidth
+      dragState.startWidth = newWidth; // 使用当前 newWidth
       dragState.startHeight = newHeight; // 使用当前 newHeight
     } else {
       dragState.startWidth = Number(props.width) || 200;
@@ -443,6 +416,10 @@ watch(
     props.data,
     props.text,
     props.boxshow,
+    props.textSize,
+    props.textWeight,
+    props.strokeColor,
+    props.strokeWidth,
   ],
   () => {
     init();

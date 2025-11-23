@@ -20,9 +20,11 @@ export interface ShapesProps {
   color?: string;
   size?: number;
   boxshow?: boolean;
-    position?: ShapePosition;
+  position?: ShapePosition;
   scaleX?: number;
   scaleY?: number;
+  strokeColor?: string;
+  strokeWidth?: number;
 }
 type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie";
 export interface Margin{

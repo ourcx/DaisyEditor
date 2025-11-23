@@ -39,6 +39,9 @@
           :scaleX="page.rect.scaleX"
           :scaleY="page.rect.scaleY"
           :color="page.background"
+          :shape="page.type"
+          :strokeColor="page.borderColor"
+          :strokeWidth="page.borderWidth"
         />
 
         <!-- 浮动菜单触发按钮 -->
@@ -411,9 +414,9 @@ const targetIframe = ref<HTMLIFrameElement | null>(null);
 // 状态管理
 const transformRef = ref({ x: 0, y: 0, scale: 1 });
 const pages = ref<WhithBoardProps[]>([
-    { rect: { x: 0, y: 0, width: 200, height: 200 }, type: '原点', background: '#e3f2fd', borderWidth: 1, borderColor: '#2196f3', id: 1, },
-    { rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect 2', background: '#fff3e0', borderWidth: 1, borderColor: '#ff9800', id: 2 },
-    { rect: { x: -300, y: 400, width: 200, height: 200 }, type: '负坐标测试', background: '#e8f5e9', borderWidth: 1, borderColor: '#4caf50', id: 3 }
+    { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 1, },
+    { rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 2 },
+    { rect: { x: -300, y: 400, width: 200, height: 200 }, type: 'Line', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 3 }
 ]);
 const WHITEBOARDPAGES = "whiteboard-pages"
 const isGuide = ref(true);
@@ -494,7 +497,7 @@ const colorValue = ref<string>('e3f2fd');
 const currentSubMenu = ref<string | null>(null);
 const selectedShape = ref<string>('circle');
 const borderWidth = ref<number>(1);
-const borderColor = ref<string>('#2196f3');
+const borderColor = ref<string>('2196f3');
 const textContent = ref<string>('文本');
 const textSize = ref<number>(16);
 const textWeight = ref<string>('normal');
@@ -754,12 +757,13 @@ const applyColorChange = () => {
 // 应用边框更改
 const applyBorderChange = () => {
     if (currentPageId.value) {
+      console.log('applyBorderChange', borderWidth.value, borderColor.value);
         pages.value = pages.value.map(page => {
             if (page.id === currentPageId.value) {
                 return {
                     ...page,
                     borderWidth: borderWidth.value,
-                    borderColor:'#'+ borderColor.value
+                    borderColor:'#'+ borderColor.value.replace('#', '')
                 };
             }
             return page;
@@ -977,7 +981,7 @@ const floatingMenuItems = ref([
     },
     {
         id: 'change-text',
-        icon: 'pi pi-font',
+        icon: 'pi pi-amazon',
         label: '文本设置',
         command: () => {
             currentSubMenu.value = 'text';
