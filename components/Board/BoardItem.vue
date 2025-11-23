@@ -202,11 +202,8 @@ const handleGlobalMouseUp = () => {
 // --- 4. 核心绘图逻辑 ---
 const init = () => {
   if (!shapeContainer.value) return;
-
-  // 清空旧内容
   shapeContainer.value.innerHTML = "";
 
-  // 使用 props 的原始尺寸初始化 SVG
   currentSvg = select((shapeContainer.value as unknown) as Element)
     .append("svg")
     .attr("class", ID)

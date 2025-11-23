@@ -14,11 +14,10 @@
                     zIndex: 10,
                     width: page.rect.width + 'px',
                     height: page.rect.height + 'px',
-                }" @click="handlePageClick($event, page)">
+                }" @click="handlePageClick($event, page)" @mousedown="eventHandlers.onMouseDown($event, page)">
                 <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width"
                     :cy="page.rect.height" :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id"
-                    @update:position="handlePositionUpdate" @update:size="handleSizeUpdate" :scaleX="page.rect.scaleX"
-                    :scaleY="page.rect.scaleY" />
+                    @update:size="handleSizeUpdate" :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" />
 
                 <!-- 浮动菜单触发按钮 -->
                 <Button icon="pi pi-equals" severity="secondary" variant="text" raised rounded aria-label="Bookmark"
@@ -251,7 +250,11 @@ const canRedo = computed(() => historyStore.cur < historyStore.history.length - 
 const showContextMenu = (e: MouseEvent) => {
     contextMenuRef.value?.show(e)
 }
-
+//拖动偏移量
+const mousedownOffset = reactive({
+    x: 0,
+    y: 0,
+})
 // 交互状态
 const interactionState = reactive({
     isDragging: false,
@@ -595,55 +598,38 @@ const zoomOut = () => {
     initCanvas();
 };
 
-//元素控制
-const handlePositionUpdate = (newPosition: { x: number; y: number }, id: number) => {
+// 在父组件中修改 handleSizeUpdate
+const handleSizeUpdate = (newScale: { width: number; height: number; scaleX: number; scaleY: number }, id: number) => {
+    console.log('Size update:', newScale);
+
     pages.value = pages.value.map((page) => {
         if (page.id === id) {
+            // 计算中心点保持不变的位置偏移
+            const centerX = page.rect.x + page.rect.width / 2;
+            const centerY = page.rect.y + page.rect.height / 2;
+
+            const newX = centerX - newScale.width / 2;
+            const newY = centerY - newScale.height / 2;
+
             return {
                 ...page,
                 rect: {
                     ...page.rect,
-                    x: newPosition.x,
-                    y: newPosition.y
+                    width: newScale.width,
+                    height: newScale.height,
+                    x: newX,
+                    y: newY,
+                    scaleX: newScale.scaleX,
+                    scaleY: newScale.scaleY
                 }
             }
         }
         return page;
-    })
-};
+    });
 
-// 在父组件中修改 handleSizeUpdate
-// 在父组件中修改 handleSizeUpdate
-const handleSizeUpdate = (newScale: { width: number; height: number; scaleX: number; scaleY: number }, id: number) => {
-  console.log('Size update:', newScale);
-  
-  pages.value = pages.value.map((page) => {
-    if (page.id === id) {
-      // 计算中心点保持不变的位置偏移
-      const centerX = page.rect.x + page.rect.width / 2;
-      const centerY = page.rect.y + page.rect.height / 2;
-      
-      const newX = centerX - newScale.width / 2;
-      const newY = centerY - newScale.height / 2;
-
-      return {
-        ...page,
-        rect: {
-          ...page.rect,
-          width: newScale.width,
-          height: newScale.height,
-          x: newX,
-          y: newY,
-          scaleX: newScale.scaleX,
-          scaleY: newScale.scaleY
-        }
-      }
-    }
-    return page;
-  });
-  
-  // 保存到数据库
-  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+    // 保存到数据库
+    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+    addHistory()
 };
 
 // 事件处理函数
@@ -866,8 +852,49 @@ const eventHandlers = {
         if (interactionState.isSelecting) return;
         doubleClickMenuState.visible = !doubleClickMenuState.visible;
         doubleClickMenuState.position = { x: e.clientX, y: e.clientY };
-    }
+    },
 
+    onMouseDown(event: MouseEvent, page: WhithBoardProps) {
+        //拖拽元素
+        event.stopPropagation();
+
+        mousedownOffset.x = event.clientX - page.rect.x;
+        mousedownOffset.y = event.clientY - page.rect.y;
+
+        // 使用箭头函数确保正确的上下文绑定
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+            eventHandlers.onMousemove(moveEvent, page);
+        };
+
+        const handleMouseUp = (upEvent: MouseEvent) => {
+            eventHandlers.onMouseup(upEvent, page);
+            document.removeEventListener('mousemove', handleMouseMove, true);
+            document.removeEventListener('mouseup', handleMouseUp, true);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove, true);
+        document.addEventListener('mouseup', handleMouseUp, true);
+    },
+
+    onMousemove(event: MouseEvent, page: WhithBoardProps) {
+        event.stopPropagation();
+
+        if (page && page.rect) {
+            page.rect.x = event.clientX - mousedownOffset.x;
+            page.rect.y = event.clientY - mousedownOffset.y;
+        }
+
+    },
+
+    onMouseup(event: MouseEvent, page: WhithBoardProps) {
+        event.stopPropagation();
+        console.log('page.rect', page.rect);
+        console.log('page.rect', pages.value);
+        //保存数据
+        storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+        //历史记录
+        addHistory()
+    },
 
 };
 
@@ -1202,6 +1229,10 @@ const extractMinimap = () => {
         }
     });
 };
+
+
+
+
 
 // 生命周期
 onMounted(() => {
