@@ -255,6 +255,15 @@ const mousedownOffset = reactive({
     x: 0,
     y: 0,
 })
+const dragState = reactive({
+    isDragging: false,
+    dragPageId: null as number | null,
+    startX: 0,
+    startY: 0,
+    startPageX: 0,
+    startPageY: 0
+});
+
 // 交互状态
 const interactionState = reactive({
     isDragging: false,
@@ -855,45 +864,75 @@ const eventHandlers = {
     },
 
     onMouseDown(event: MouseEvent, page: WhithBoardProps) {
-        //拖拽元素
         event.stopPropagation();
 
-        mousedownOffset.x = event.clientX - page.rect.x;
-        mousedownOffset.y = event.clientY - page.rect.y;
+        dragState.isDragging = true;
+        dragState.dragPageId = page.id;
+
+        // 记录初始状态
+        dragState.startX = event.clientX;
+        dragState.startY = event.clientY;
+        dragState.startPageX = page.rect.x;
+        dragState.startPageY = page.rect.y;
 
         // 使用箭头函数确保正确的上下文绑定
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            eventHandlers.onMousemove(moveEvent, page);
+            eventHandlers.onMouseMove(moveEvent);
         };
 
         const handleMouseUp = (upEvent: MouseEvent) => {
-            eventHandlers.onMouseup(upEvent, page);
-            document.removeEventListener('mousemove', handleMouseMove, true);
-            document.removeEventListener('mouseup', handleMouseUp, true);
+            eventHandlers.onMouseup(upEvent);
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
         };
 
-        document.addEventListener('mousemove', handleMouseMove, true);
-        document.addEventListener('mouseup', handleMouseUp, true);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
     },
 
-    onMousemove(event: MouseEvent, page: WhithBoardProps) {
+    onMouseMove(event: MouseEvent) {
+        if (!dragState.isDragging || dragState.dragPageId === null) return;
+
         event.stopPropagation();
 
-        if (page && page.rect) {
-            page.rect.x = event.clientX - mousedownOffset.x;
-            page.rect.y = event.clientY - mousedownOffset.y;
-        }
+        // 计算位移（考虑画布缩放）
+        let deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
+        let deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
+
+        // 更新页面数据 - 使用不可变更新
+        pages.value = pages.value.map(page => {
+            if (page.id === dragState.dragPageId) {
+
+                return {
+                    ...page,
+                    rect: {
+                        ...page.rect,
+                        x: dragState.startPageX + deltaX,
+                        y: dragState.startPageY + deltaY
+                    }
+                };
+            }
+            return page;
+        });
 
     },
 
-    onMouseup(event: MouseEvent, page: WhithBoardProps) {
+    onMouseup(event: MouseEvent) {
+        if (!dragState.isDragging) return;
+
         event.stopPropagation();
-        console.log('page.rect', page.rect);
-        console.log('page.rect', pages.value);
-        //保存数据
+
+        // 重置拖拽状态
+        dragState.isDragging = false;
+        dragState.dragPageId = null;
+
+        console.log('拖拽结束，当前页面数据:', pages.value);
+
+        // 保存数据
         storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
-        //历史记录
-        addHistory()
+        // 历史记录
+        addHistory();
+        getAllDomPoint();
     },
 
 };
@@ -1008,52 +1047,66 @@ const initCanvas = () => {
 };
 
 const getAllDomPoint = () => {
-    nextTick(() => {
-        if (!canvasRef.value) return;
-        for (const key of canvasRef.value.children) {
-            const id = key.getAttribute('data-id') || '';
-            const { x, y, width, height } = key.getBoundingClientRect();
-            rectInfoList.value.set(id, {
-                id: (key as HTMLElement).dataset.id || '',
-                x,
-                y,
-                width,
-                height,
-            });
-        }
-        console.log('rectInfoList', rectInfoList.value);
-    });
+  nextTick(() => {
+    if (!canvasRef.value) return;
+    
+    rectInfoList.value.clear(); // 清空之前的记录
+    
+    for (const key of canvasRef.value.children) {
+      const id = key.getAttribute('data-id') || '';
+      const element = key as HTMLElement;
+      
+      // 直接从元素的 style 属性获取位置，这是画布坐标系中的位置
+      const style = element.style;
+      const x = parseFloat(style.left) || 0;
+      const y = parseFloat(style.top) || 0;
+      const width = parseFloat(style.width) || 0;
+      const height = parseFloat(style.height) || 0;
+
+      rectInfoList.value.set(id, {
+        id,
+        x,
+        y,
+        width,
+        height,
+      });
+    }
+    console.log('rectInfoList', rectInfoList.value);
+  });
 };
 
+// 修改 computedIsSelected 函数
 const computedIsSelected = (areaPoint: AreaPoint, rectInfo: RectInfo) => {
-    const { startX, startY, endX, endY } = areaPoint;
-    let { x, y, width, height } = rectInfo;
+  const { startX, startY, endX, endY } = areaPoint;
+  
+  // 将屏幕坐标转换为画布坐标
+  const canvasStartX = (startX - transformRef.value.x) / transformRef.value.scale;
+  const canvasStartY = (startY - transformRef.value.y) / transformRef.value.scale;
+  const canvasEndX = (endX - transformRef.value.x) / transformRef.value.scale;
+  const canvasEndY = (endY - transformRef.value.y) / transformRef.value.scale;
 
-    x = x * transformRef.value.scale + transformRef.value.x;
-    y = y * transformRef.value.scale + transformRef.value.y;
-    width = width * transformRef.value.scale;
-    height = height * transformRef.value.scale;
+  // 使用元素的原始画布坐标（不需要转换）
+  const { x, y, width, height } = rectInfo;
 
-    const finalStartX = startX > endX ? endX : startX;
-    const finalStartY = startY > endY ? endY : startY;
-    const finalEndX = startX > endX ? startX : endX;
-    const finalEndY = startY > endY ? startY : endY;
+  // 计算选择框的边界
+  const selectionLeft = Math.min(canvasStartX, canvasEndX);
+  const selectionTop = Math.min(canvasStartY, canvasEndY);
+  const selectionRight = Math.max(canvasStartX, canvasEndX);
+  const selectionBottom = Math.max(canvasStartY, canvasEndY);
 
-    const rectPointTopLeft = { x, y };
-    const rectPointTopRight = { x: x + width, y };
-    const rectPointBottomLeft = { x, y: y + height };
-    const rectPointBottomRight = { x: x + width, y: y + height };
+  // 计算元素的边界
+  const elementLeft = x;
+  const elementTop = y;
+  const elementRight = x + width;
+  const elementBottom = y + height;
 
-    return (
-        (rectPointTopLeft.x >= finalStartX && rectPointTopLeft.x <= finalEndX && rectPointTopLeft.y >= finalStartY && rectPointTopLeft.y <= finalEndY) ||
-        (rectPointTopRight.x >= finalStartX && rectPointTopRight.x <= finalEndX && rectPointTopRight.y >= finalStartY && rectPointTopRight.y <= finalEndY) ||
-        (rectPointBottomLeft.x >= finalStartX && rectPointBottomLeft.x <= finalEndX && rectPointBottomLeft.y >= finalStartY && rectPointBottomLeft.y <= finalEndY) ||
-        (rectPointBottomRight.x >= finalStartX && rectPointBottomRight.x <= finalEndX && rectPointBottomRight.y >= finalStartY && rectPointBottomRight.y <= finalEndY) ||
-        (rectPointTopLeft.x <= finalStartX && rectPointTopRight.x >= finalStartX && rectPointTopLeft.y <= finalStartY && rectPointBottomLeft.y >= finalStartY) ||
-        (rectPointTopLeft.x <= finalEndX && rectPointTopRight.x >= finalEndX && rectPointTopLeft.y <= finalEndY && rectPointBottomLeft.y >= finalEndY) ||
-        (rectPointTopLeft.x <= finalStartX && rectPointTopRight.x >= finalStartX && rectPointTopLeft.x <= finalEndX && rectPointTopRight.x >= finalEndX && rectPointTopLeft.y >= finalStartY && rectPointBottomLeft.y <= finalEndY) ||
-        (rectPointTopLeft.y <= finalStartY && rectPointBottomLeft.y >= finalStartY && rectPointTopLeft.y <= finalEndY && rectPointBottomLeft.y >= finalEndY && rectPointTopLeft.x >= finalStartX && rectPointBottomRight.x <= finalEndX)
-    );
+  // 检查元素是否在选择框内（任何重叠）
+  return (
+    elementLeft <= selectionRight &&
+    elementRight >= selectionLeft &&
+    elementTop <= selectionBottom &&
+    elementBottom >= selectionTop
+  );
 };
 
 const pasteElement = () => {
@@ -1284,6 +1337,7 @@ onUnmounted(() => {
 
 .grid-bg {
     pointer-events: none;
+    overflow: hidden;
 }
 
 .canvas {

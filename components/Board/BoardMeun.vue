@@ -2,7 +2,7 @@
     <div class="board-menu board-menu-vertical z-40 w-auto h-auto bg-white shadow-lg rounded p-2 grid gap-2 grid-rows-4 grid-cols-4"
          v-if="visible"
          :style="{
-             position: 'absolute',
+             position: 'fixed',
              left: x + 'px',
              top: y + 'px'
          }">
