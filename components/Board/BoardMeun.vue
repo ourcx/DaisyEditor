@@ -21,21 +21,8 @@
 </template>
 
 <script setup lang="ts">
-interface menuProps {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-    data?: menuData[];
-    visible?: boolean;
-}
+import type { menuData, menuProps } from '~/types/components/type';
 
-type menuData = {
-    name: string;
-    icon: string;
-    action: string;
-    params?: unknown;
-};
 
 interface menuEmit {
     (e: "action", item: menuData): void;

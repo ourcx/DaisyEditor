@@ -446,8 +446,7 @@ watch(
   ],
   () => {
     init();
-  },
-  { deep: true }
+  }
 );
 
 onMounted(() => {

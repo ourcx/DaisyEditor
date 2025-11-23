@@ -21,7 +21,8 @@ export interface ShapesProps {
   size?: number;
   boxshow?: boolean;
     position?: ShapePosition;
-  scale?: ShapeScale;
+  scaleX?: number;
+  scaleY?: number;
 }
 type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie";
 export interface Margin{
@@ -39,3 +40,19 @@ export interface ShapeScale {
   width: number;
   height: number;
 }
+
+export interface menuProps {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    data?: menuData[];
+    visible?: boolean;
+}
+
+export type menuData = {
+    name: string;
+    icon: string;
+    action: string;
+    params?: unknown;
+};

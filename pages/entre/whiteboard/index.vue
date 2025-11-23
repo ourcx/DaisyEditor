@@ -1,144 +1,386 @@
 <template>
-    <BoardMeun class="z-dialog" id="boardMenu" :visible="doubleClickMenuState.visible"
-        :x="doubleClickMenuState.position.x" :y="doubleClickMenuState.position.y" />
-    <Toast position="top-center" />
-    <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu">
-        <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" class="z-dialog" />
-        <div class="grid-bg" :style="gridStyle"></div>
-        <div ref="canvasRef" class="canvas" :style="canvasStyle">
-            <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`"
-                class="absolute rounded-lg cursor-pointer select-none transition-all duration-200 page-item" :style="{
-                    top: page.rect.y + 'px',
-                    left: page.rect.x + 'px',
-                    pointerEvents: 'auto',
-                    zIndex: 10,
-                    width: page.rect.width + 'px',
-                    height: page.rect.height + 'px',
-                }" @click="handlePageClick($event, page)" @mousedown="eventHandlers.onMouseDown($event, page)">
-                <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width"
-                    :cy="page.rect.height" :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id"
-                    @update:size="handleSizeUpdate" :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" />
+  <BoardMeun
+    class="z-dialog"
+    id="boardMenu"
+    :visible="doubleClickMenuState.visible"
+    :x="doubleClickMenuState.position.x"
+    :y="doubleClickMenuState.position.y"
+    @action="ClickBoardMeun"
+  />
+  <Toast position="top-center" />
+  <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu">
+    <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" class="z-dialog" />
+    <div class="grid-bg" :style="gridStyle"></div>
+    <div ref="canvasRef" class="canvas" :style="canvasStyle">
+      <div
+        v-for="(page, index) in pages"
+        :key="index"
+        :data-id="`id-key-${page.id}`"
+        class="absolute rounded-lg cursor-pointer select-none transition-all duration-200 page-item"
+        :style="{
+          top: page.rect.y + 'px',
+          left: page.rect.x + 'px',
+          pointerEvents: 'auto',
+          zIndex: 10,
+          width: page.rect.width + 'px',
+          height: page.rect.height + 'px',
+        }"
+        @click="handlePageClick($event, page)"
+        @mousedown="eventHandlers.onMouseDown($event, page)"
+      >
+        <BoardItem
+          :width="page.rect.width"
+          :height="page.rect.height"
+          :cx="page.rect.width"
+          :cy="page.rect.height"
+          :boxshow="highRectList.has(`id-key-${page.id}`)"
+          :id="page.id"
+          @update:size="handleSizeUpdate"
+          :scaleX="page.rect.scaleX"
+          :scaleY="page.rect.scaleY"
+          :color="page.background"
+        />
 
-                <!-- 浮动菜单触发按钮 -->
-                <Button icon="pi pi-equals" severity="secondary" variant="text" raised rounded aria-label="Bookmark"
-                    class="floating-trigger" @click.stop="toggleFloatingMenu($event, page)" :pt="{
-                        root: {
-                            style: {
-                                position: 'absolute',
-                                top: '4px',
-                                right: '4px',
-                                width: '32px',
-                                height: '32px',
-                                background: 'white',
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '6px',
-                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                                zIndex: 20,
-                                opacity: 0,
-                                transition: 'opacity 0.2s ease',
-                            },
-                        },
-                    }">
-                </Button>
-            </div>
-        </div>
-
-        <!-- 使用Teleport将浮动菜单渲染到body -->
-        <Teleport to="body">
-            <div v-if="floatingMenuVisible" class="global-floating-menu" :style="floatingMenuStyle" @click.stop>
-                <SpeedDial :model="items" direction="up" :transitionDelay="80" :visible="floatingMenuVisible"
-                    @hide="closeFloatingMenu">
-                    <template #item="{ item }">
-                        <div class="flex flex-col items-center justify-between gap-2 p-2 rounded w-10 cursor-pointer hover:bg-emerald-200 hover:text-gray-700"
-                            @click="handleActionClick(item)"
-                            :title="typeof item.label === 'function' ? item.label() : item.label">
-                            <span :class="item.icon" class="p-2" />
-                        </div>
-                    </template>
-                </SpeedDial>
-            </div>
-        </Teleport>
-
-        <canvas id="canvas" class="canvas"></canvas>
-
-        <div class="fixed bottom-4 right-4 text-white flex items-center justify-center gap-2 z-bar">
-            <!-- 历史记录撤回  -->
-            <Button icon="pi pi-chevron-left" class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
-                @click="handleUndo" :disabled="!canUndo" />
-            <!-- 历史记录前进  -->
-            <Button icon="pi pi-chevron-right" class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
-                @click="handleRedo" :disabled="!canRedo" />
-
-            <div class="bg-black/70 rounded text-xs flex items-center justify-center gap-1">
-                <!-- 放大  -->
-                <Button icon="pi pi-search-plus" class="hover:bg-black/80 rounded text-white bg-transparent"
-                    @click="zoomIn" />
-                <div class="pl-1 pr-1">
-                    Scale: {{ transformRef.scale.toFixed(2) }} | X:
-                    {{ transformRef.x.toFixed(0) }} | Y:
-                    {{ transformRef.y.toFixed(0) }}
-                </div>
-                <Button icon="pi pi-search-minus" class="hover:bg-black/80 rounded text-white bg-transparent"
-                    @click="zoomOut" />
-            </div>
-            <Button @click="toggleGuides" class="">辅助线开关</Button>
-        </div>
-
-        <BoardLeft class="z-dialog" id="boardLeft" />
-        <!-- 小地图区域 -->
-        <div v-if="isMinimapVisible"
-            class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96">
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium text-gray-700">导航地图</span>
-                <div class="flex space-x-1">
-                    <button @click="zoomInMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="放大">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
-                            </path>
-                        </svg>
-                    </button>
-                    <button @click="zoomOutMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="缩小">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
-                        </svg>
-                    </button>
-                    <button @click="refreshMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="刷新">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                            </path>
-                        </svg>
-                    </button>
-                    <button @click="toggleMinimap" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="隐藏">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12">
-                            </path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <div class="slider w-full relative border border-gray-200 rounded overflow-hidden bg-white">
-                <iframe class="slider__content w-full h-full border-none" ref="targetIframe" sandbox="allow-same-origin"
-                    @load="onIframeLoad" />
-
-                <!-- 视口指示器 -->
-                <div class="absolute border-2 border-red-500 bg-red-200 bg-opacity-20 pointer-events-none transition-all duration-200"
-                    :style="viewportIndicatorStyle"></div>
-            </div>
-        </div>
-        <!-- 显示小地图的按钮（当隐藏时） -->
-        <button v-else @click="toggleMinimap"
-            class="fixed top-4 right-4 p-2 bg-primary-500 text-white rounded-lg shadow-lg hover:bg-red-400 transition-colors"
-            title="显示导航地图">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7">
-                </path>
-            </svg>
-        </button>
+        <!-- 浮动菜单触发按钮 -->
+        <Button
+          icon="pi pi-equals"
+          severity="secondary"
+          variant="text"
+          raised
+          rounded
+          aria-label="Bookmark"
+          class="floating-trigger"
+          @click.stop="toggleFloatingMenu($event, page)"
+          :pt="{
+            root: {
+              style: {
+                position: 'absolute',
+                top: '4px',
+                right: '4px',
+                width: '32px',
+                height: '32px',
+                background: 'white',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                zIndex: 20,
+                opacity: 0,
+                transition: 'opacity 0.2s ease',
+              },
+            },
+          }"
+        >
+        </Button>
+      </div>
     </div>
+
+    <!-- 使用Teleport将浮动菜单渲染到body -->
+    <Teleport to="body">
+      <div
+        v-if="floatingMenuVisible"
+        class="global-floating-menu"
+        :style="floatingMenuStyle"
+        @click.stop
+      >
+        <div class="floating-menu-content">
+          <!-- 颜色选择器 -->
+          <div v-if="currentSubMenu === 'color'" class="sub-menu-section">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium">选择颜色</span>
+              <Button icon="pi pi-times" text rounded @click="currentSubMenu = null" />
+            </div>
+            <ColorPicker v-model="colorValue" format="hex" />
+            <div class="flex gap-2 mt-3">
+              <Button label="应用" size="small" @click="applyColorChange" />
+              <Button
+                label="取消"
+                severity="secondary"
+                size="small"
+                @click="currentSubMenu = null"
+              />
+            </div>
+          </div>
+
+          <!-- 形状选择器 -->
+          <div v-else-if="currentSubMenu === 'shape'" class="sub-menu-section">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium">选择形状</span>
+              <Button icon="pi pi-times" text rounded @click="currentSubMenu = null" />
+            </div>
+            <div class="shape-grid">
+              <div
+                v-for="shape in availableShapes"
+                :key="shape.id"
+                class="shape-item"
+                :class="{ active: shape.id === selectedShape }"
+                @click="selectShape(shape.id)"
+              >
+                <div class="shape-preview" :class="`shape-${shape.id}`"></div>
+                <span class="shape-label">{{ shape.label }}</span>
+              </div>
+            </div>
+            <div class="flex gap-2 mt-3">
+              <Button label="应用" size="small" @click="applyShapeChange" />
+              <Button
+                label="取消"
+                severity="secondary"
+                size="small"
+                @click="currentSubMenu = null"
+              />
+            </div>
+          </div>
+
+          <!-- 边框设置 -->
+          <div v-else-if="currentSubMenu === 'border'" class="sub-menu-section">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium">边框设置</span>
+              <Button icon="pi pi-times" text rounded @click="currentSubMenu = null" />
+            </div>
+
+            <div class="border-controls">
+              <div class="control-group">
+                <label class="control-label">边框宽度</label>
+                <InputNumber
+                  v-model="borderWidth"
+                  :min="0"
+                  :max="10"
+                  :step="1"
+                  showButtons
+                  buttonLayout="horizontal"
+                  class="w-full"
+                />
+              </div>
+
+              <div class="control-group">
+                <label class="control-label">边框颜色</label>
+                <ColorPicker v-model="borderColor" format="hex" />
+              </div>
+            </div>
+
+            <div class="flex gap-2 mt-3">
+              <Button label="应用" size="small" @click="applyBorderChange" />
+              <Button
+                label="取消"
+                severity="secondary"
+                size="small"
+                @click="currentSubMenu = null"
+              />
+            </div>
+          </div>
+
+          <!-- 文本设置 -->
+          <div v-else-if="currentSubMenu === 'text'" class="sub-menu-section">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium">文本设置</span>
+              <Button icon="pi pi-times" text rounded @click="currentSubMenu = null" />
+            </div>
+
+            <div class="text-controls">
+              <div class="control-group">
+                <label class="control-label">文本内容</label>
+                <InputText
+                  v-model="textContent"
+                  placeholder="输入文本内容"
+                  class="w-full"
+                />
+              </div>
+
+              <div class="control-group">
+                <label class="control-label">字体大小</label>
+                <InputNumber
+                  v-model="textSize"
+                  :min="8"
+                  :max="72"
+                  :step="2"
+                  showButtons
+                  buttonLayout="horizontal"
+                  class="w-full"
+                />
+              </div>
+
+              <div class="control-group">
+                <label class="control-label">字体粗细</label>
+                <Dropdown
+                  v-model="textWeight"
+                  :options="fontWeightOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  class="w-full"
+                />
+              </div>
+            </div>
+
+            <div class="flex gap-2 mt-3">
+              <Button label="应用" size="small" @click="applyTextChange" />
+              <Button
+                label="取消"
+                severity="secondary"
+                size="small"
+                @click="currentSubMenu = null"
+              />
+            </div>
+          </div>
+
+          <!-- 主菜单 -->
+          <div v-else class="menu-items-grid">
+            <div
+              v-for="item in floatingMenuItems"
+              :key="item.id"
+              class="menu-item"
+              @click="handleFloatingAction(item)"
+              :class="{ disabled: item.requireText && currentPageType !== 'Text' }"
+            >
+              <i :class="item.icon" class="menu-icon"></i>
+              <span class="menu-label">{{ item.label }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <canvas id="canvas" class="canvas"></canvas>
+
+    <div
+      class="fixed bottom-4 right-4 text-white flex items-center justify-center gap-2 z-bar"
+    >
+      <!-- 历史记录撤回  -->
+      <Button
+        icon="pi pi-chevron-left"
+        class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
+        @click="handleUndo"
+        :disabled="!canUndo"
+      />
+      <!-- 历史记录前进  -->
+      <Button
+        icon="pi pi-chevron-right"
+        class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
+        @click="handleRedo"
+        :disabled="!canRedo"
+      />
+
+      <div class="bg-black/70 rounded text-xs flex items-center justify-center gap-1">
+        <!-- 放大  -->
+        <Button
+          icon="pi pi-search-plus"
+          class="hover:bg-black/80 rounded text-white bg-transparent"
+          @click="zoomIn"
+        />
+        <div class="pl-1 pr-1">
+          Scale: {{ transformRef.scale.toFixed(2) }} | X:
+          {{ transformRef.x.toFixed(0) }} | Y:
+          {{ transformRef.y.toFixed(0) }}
+        </div>
+        <Button
+          icon="pi pi-search-minus"
+          class="hover:bg-black/80 rounded text-white bg-transparent"
+          @click="zoomOut"
+        />
+      </div>
+      <Button @click="toggleGuides" class="">辅助线开关</Button>
+    </div>
+
+    <BoardLeft class="z-dialog" id="boardLeft" />
+    <!-- 小地图区域 -->
+    <div
+      v-if="isMinimapVisible"
+      class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96"
+    >
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-sm font-medium text-gray-700">导航地图</span>
+        <div class="flex space-x-1">
+          <button
+            @click="zoomInMinimap"
+            class="p-1 rounded hover:bg-gray-200 text-gray-600"
+            title="放大"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v16m8-8H4"
+              ></path>
+            </svg>
+          </button>
+          <button
+            @click="zoomOutMinimap"
+            class="p-1 rounded hover:bg-gray-200 text-gray-600"
+            title="缩小"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M20 12H4"
+              ></path>
+            </svg>
+          </button>
+          <button
+            @click="refreshMinimap"
+            class="p-1 rounded hover:bg-gray-200 text-gray-600"
+            title="刷新"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              ></path>
+            </svg>
+          </button>
+          <button
+            @click="toggleMinimap"
+            class="p-1 rounded hover:bg-gray-200 text-gray-600"
+            title="隐藏"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="slider w-full relative border border-gray-200 rounded overflow-hidden bg-white"
+      >
+        <iframe
+          class="slider__content w-full h-full border-none"
+          ref="targetIframe"
+          sandbox="allow-same-origin"
+          @load="onIframeLoad"
+        />
+
+        <!-- 视口指示器 -->
+        <div
+          class="absolute border-2 border-red-500 bg-red-200 bg-opacity-20 pointer-events-none transition-all duration-200"
+          :style="viewportIndicatorStyle"
+        ></div>
+      </div>
+    </div>
+    <!-- 显示小地图的按钮（当隐藏时） -->
+    <button
+      v-else
+      @click="toggleMinimap"
+      class="fixed top-4 right-4 p-2 bg-primary-500 text-white rounded-lg shadow-lg hover:bg-red-400 transition-colors"
+      title="显示导航地图"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+        ></path>
+      </svg>
+    </button>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -156,6 +398,7 @@ import BoardLeft from '~/components/Board/BoardLeft.vue';
 import { useHistoryStore } from '~/store/HistoryStore';
 import { useToast } from 'primevue/usetoast';
 import BoardMeun from '~/components/Board/BoardMeun.vue';
+import type { menuData } from '~/types/components/type';
 
 const historyStore = useHistoryStore();
 const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
@@ -242,10 +485,46 @@ const menuItems: MenuItem[] = [
         key: 'save'
     }
 ]
-
+const curPage = ref<string>('');
+//当前的菜单元素
 // 计算属性：是否可以撤销/重做
 const canUndo = computed(() => historyStore.cur > 0);
 const canRedo = computed(() => historyStore.cur < historyStore.history.length - 1);
+const colorValue = ref<string>('e3f2fd');
+const currentSubMenu = ref<string | null>(null);
+const selectedShape = ref<string>('circle');
+const borderWidth = ref<number>(1);
+const borderColor = ref<string>('#2196f3');
+const textContent = ref<string>('文本');
+const textSize = ref<number>(16);
+const textWeight = ref<string>('normal');
+const currentPageType = ref<string>('');
+// 可用的形状类型
+const availableShapes = [
+    { id: 'circle', label: '圆形', icon: 'pi pi-circle' },
+    { id: 'Rect', label: '矩形', icon: 'pi pi-square' },
+    { id: 'Line', label: '线条', icon: 'pi pi-minus' },
+    { id: 'Text', label: '文本', icon: 'pi pi-font' },
+    { id: 'Curve', label: '曲线', icon: 'pi pi-chart-line' },
+    { id: 'Area', label: '区域', icon: 'pi pi-objects-column' },
+    { id: 'Arc', label: '弧形', icon: 'pi pi-arrow-right-arrow-left' },
+    { id: 'Pie', label: '饼图', icon: 'pi pi-chart-pie' }
+];
+
+// 字体粗细选项
+const fontWeightOptions = [
+    { label: '正常', value: 'normal' },
+    { label: '粗体', value: 'bold' },
+    { label: '100', value: '100' },
+    { label: '200', value: '200' },
+    { label: '300', value: '300' },
+    { label: '400', value: '400' },
+    { label: '500', value: '500' },
+    { label: '600', value: '600' },
+    { label: '700', value: '700' },
+    { label: '800', value: '800' },
+    { label: '900', value: '900' }
+];
 
 const showContextMenu = (e: MouseEvent) => {
     contextMenuRef.value?.show(e)
@@ -392,11 +671,197 @@ const handleRedo = () => {
     }
 };
 
-// 浮动菜单函数
+
+const handleGlobalClick = (event: MouseEvent) => {
+    if (!(event.target as HTMLElement).closest('.global-floating-menu')) {
+        closeFloatingMenu();
+    }
+};
+
+//浮动菜单
+const handleActionClick = (item: any) => {
+    if (item.command) {
+        item.command();
+    }
+};
+//菜单颜色
+const handleFloatingAction = (item: any) => {
+    if (item.requireText && currentPageType.value !== 'Text') {
+        toast.add({
+            severity: 'warn',
+            summary: '操作提示',
+            detail: '此功能仅适用于文本元素',
+            life: 2000
+        });
+        return;
+    }
+
+    if (item.command) {
+        item.command();
+    }
+};
+
+// 选择形状
+const selectShape = (shapeId: string) => {
+    selectedShape.value = shapeId;
+};
+
+// 应用形状更改
+const applyShapeChange = () => {
+    if (currentPageId.value) {
+        pages.value = pages.value.map(page => {
+            if (page.id === currentPageId.value) {
+                const updatedPage = {
+                    ...page,
+                    type: selectedShape.value
+                };
+
+                // 如果是文本类型，确保有默认文本属性
+                if (selectedShape.value === 'Text') {
+                    if (!updatedPage.text) updatedPage.text = '文本';
+                    if (!updatedPage.textSize) updatedPage.textSize = 16;
+                    if (!updatedPage.textWeight) updatedPage.textWeight = 'normal';
+                }
+
+                return updatedPage;
+            }
+            return page;
+        });
+
+        saveAndNotify('形状', `图形已更改为${availableShapes.find(s => s.id === selectedShape.value)?.label}`);
+        currentSubMenu.value = null;
+    }
+};
+
+// 应用颜色更改
+const applyColorChange = () => {
+    if (currentPageId.value) {
+        pages.value = pages.value.map(page => {
+            if (page.id === currentPageId.value) {
+                return {
+                    ...page,
+                    background:'#'+colorValue.value
+                };
+            }
+            return page;
+        });
+
+        saveAndNotify('颜色', '页面颜色已更新');
+        currentSubMenu.value = null;
+    }
+};
+
+// 应用边框更改
+const applyBorderChange = () => {
+    if (currentPageId.value) {
+        pages.value = pages.value.map(page => {
+            if (page.id === currentPageId.value) {
+                return {
+                    ...page,
+                    borderWidth: borderWidth.value,
+                    borderColor:'#'+ borderColor.value
+                };
+            }
+            return page;
+        });
+
+        saveAndNotify('边框', '边框设置已更新');
+        currentSubMenu.value = null;
+    }
+};
+
+// 应用文本更改
+const applyTextChange = () => {
+    if (currentPageId.value) {
+        pages.value = pages.value.map(page => {
+            if (page.id === currentPageId.value) {
+                return {
+                    ...page,
+                    text: textContent.value,
+                    textSize: textSize.value,
+                    textWeight: textWeight.value
+                };
+            }
+            return page;
+        });
+
+        saveAndNotify('文本', '文本设置已更新');
+        currentSubMenu.value = null;
+    }
+};
+
+// 保存并通知的通用方法
+const saveAndNotify = (summary: string, detail: string) => {
+    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+    addHistory();
+
+    toast.add({
+        severity: 'success',
+        summary,
+        detail,
+        life: 2000
+    });
+};
+
+// 复制页面
+const duplicatePage = () => {
+    if (currentPageId.value) {
+        const originalPage = pages.value.find(page => page.id === currentPageId.value);
+        if (originalPage) {
+            const newPage = {
+                ...JSON.parse(JSON.stringify(originalPage)),
+                id: Date.now(),
+                rect: {
+                    ...originalPage.rect,
+                    x: originalPage.rect.x + 30,
+                    y: originalPage.rect.y + 30
+                }
+            };
+            pages.value.push(newPage);
+            saveAndNotify('复制', '页面已复制');
+            closeFloatingMenu();
+        }
+    }
+};
+
+// 删除当前页面
+const deleteCurrentPage = () => {
+    if (currentPageId.value) {
+        pages.value = pages.value.filter(page => page.id !== currentPageId.value);
+        saveAndNotify('删除', '页面已删除');
+        closeFloatingMenu();
+    }
+};
+
+// 置顶
+const bringToFront = () => {
+    if (currentPageId.value) {
+        const pageIndex = pages.value.findIndex(page => page.id === currentPageId.value);
+        if (pageIndex > -1) {
+            const [page] = pages.value.splice(pageIndex, 1);
+            pages.value.push(page!);
+            saveAndNotify('置顶', '元素已置顶');
+            closeFloatingMenu();
+        }
+    }
+};
+
+// 置底
+const sendToBack = () => {
+    if (currentPageId.value) {
+        const pageIndex = pages.value.findIndex(page => page.id === currentPageId.value);
+        if (pageIndex > -1) {
+            const [page] = pages.value.splice(pageIndex, 1);
+            pages.value.unshift(page!);
+            saveAndNotify('置底', '元素已置底');
+            closeFloatingMenu();
+        }
+    }
+};
+
+// 修改 toggleFloatingMenu 函数，添加状态初始化
 const toggleFloatingMenu = (event: MouseEvent, page: WhithBoardProps) => {
     event.stopPropagation();
-
-    console.log('toggleFloatingMenu', page.id, event);
 
     // 如果点击的是同一个页面且菜单已显示，则关闭
     if (floatingMenuVisible.value && currentPageId.value === page.id) {
@@ -405,6 +870,15 @@ const toggleFloatingMenu = (event: MouseEvent, page: WhithBoardProps) => {
     }
 
     currentPageId.value = page.id;
+    currentPageType.value = page.type;
+    colorValue.value = page.background;
+    selectedShape.value = page.type;
+    borderWidth.value = page.borderWidth;
+    borderColor.value = page.borderColor;
+    textContent.value = page.text || '文本';
+    textSize.value = page.textSize || 16;
+    textWeight.value = page.textWeight || 'normal';
+    currentSubMenu.value = null;
 
     // 获取页面元素在屏幕上的实际位置
     const pageElement = event.currentTarget as HTMLElement;
@@ -413,97 +887,44 @@ const toggleFloatingMenu = (event: MouseEvent, page: WhithBoardProps) => {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    // 预估菜单尺寸
+    // 菜单尺寸
     const menuWidth = 200;
-    const menuHeight = items.value.length * 60;
+    const menuHeight = 240;
 
-    // 计算按钮在屏幕上的位置（触发按钮在页面右上角）
-    const buttonRect = {
-        x: pageRect.right - 32, // 按钮宽度32px
-        y: pageRect.top,
-        width: 32,
-        height: 32
-    };
-
-    // 计算按钮中心点
-    const buttonCenterX = buttonRect.x + buttonRect.width / 2;
-    const buttonCenterY = buttonRect.y + buttonRect.height / 2;
-
-    // 根据按钮在视口中的位置决定最佳显示方向
-    let preferredPosition = '';
-
-    if (buttonCenterX > viewportWidth * 0.7 && buttonCenterY < viewportHeight * 0.3) {
-        preferredPosition = 'bottom-left';
-    } else if (buttonCenterX > viewportWidth * 0.7 && buttonCenterY > viewportHeight * 0.7) {
-        preferredPosition = 'top-left';
-    } else if (buttonCenterX < viewportWidth * 0.3 && buttonCenterY < viewportHeight * 0.3) {
-        preferredPosition = 'bottom-right';
-    } else if (buttonCenterX < viewportWidth * 0.3 && buttonCenterY > viewportHeight * 0.7) {
-        preferredPosition = 'top-right';
-    } else {
-        preferredPosition = buttonCenterX > viewportWidth / 2 ? 'left' : 'right';
-    }
-
-    let finalX = buttonRect.x;
-    let finalY = buttonRect.y;
-
-    switch (preferredPosition) {
-        case 'bottom-left':
-            finalX = buttonRect.x - menuWidth + buttonRect.width;
-            finalY = buttonRect.y + buttonRect.height + 5;
-            break;
-        case 'top-left':
-            finalX = buttonRect.x - menuWidth + buttonRect.width;
-            finalY = buttonRect.y - menuHeight - 5;
-            break;
-        case 'bottom-right':
-            finalX = buttonRect.x + buttonRect.width + 5;
-            finalY = buttonRect.y + buttonRect.height + 5;
-            break;
-        case 'top-right':
-            finalX = buttonRect.x + buttonRect.width + 5;
-            finalY = buttonRect.y - menuHeight - 5;
-            break;
-        case 'left':
-            finalX = buttonRect.x - menuWidth - 5;
-            finalY = buttonRect.y;
-            break;
-        case 'right':
-        default:
-            finalX = buttonRect.x + buttonRect.width + 5;
-            finalY = buttonRect.y;
-            break;
-    }
+    // 计算菜单位置 - 在页面元素右侧显示
+    let finalX = pageRect.right + 10;
+    let finalY = pageRect.top;
 
     // 边界检查
-    finalX = Math.max(5, Math.min(finalX, viewportWidth - menuWidth - 5));
-    finalY = Math.max(5, Math.min(finalY, viewportHeight - menuHeight - 5));
+    if (finalX + menuWidth > viewportWidth - 10) {
+        // 如果右侧空间不足，显示在左侧
+        finalX = pageRect.left - menuWidth - 10;
+    }
+
+    if (finalY + menuHeight > viewportHeight - 10) {
+        // 如果下方空间不足，向上调整
+        finalY = viewportHeight - menuHeight - 10;
+    }
 
     floatingMenuPosition.value = {
-        x: finalX,
-        y: finalY,
+        x: Math.max(10, finalX),
+        y: Math.max(10, finalY),
     };
 
     floatingMenuVisible.value = true;
-
 };
 
-const handleGlobalClick = (event: MouseEvent) => {
-    if (!(event.target as HTMLElement).closest('.global-floating-menu')) {
-        closeFloatingMenu();
-    }
-};
-
+// 关闭浮动菜单
 const closeFloatingMenu = () => {
     floatingMenuVisible.value = false;
     currentPageId.value = null;
+    currentSubMenu.value = null;
 };
 
-const handleActionClick = (item: any) => {
-    if (item.command) {
-        item.command();
-    }
-};
+
+
+
+
 
 // 页面点击处理
 const handlePageClick = (event: MouseEvent, page: WhithBoardProps) => {
@@ -529,68 +950,71 @@ const clickPageItem = (e: MouseEvent) => {
 const toast = useToast();
 const router = useRouter();
 
-const items = ref([
+const floatingMenuItems = ref([
     {
+        id: 'change-shape',
         icon: 'pi pi-expand',
         label: '更改图形',
         command: () => {
-            // 更改图形逻辑
-            toast.add({ severity: 'info', summary: '图形', detail: '更改图形功能', life: 3000 });
-            addHistory(); // 添加历史记录
+            currentSubMenu.value = 'shape';
         }
     },
     {
+        id: 'change-color',
         icon: 'pi pi-palette',
         label: '更改颜色',
         command: () => {
-            // 更改颜色逻辑
-            toast.add({ severity: 'info', summary: '颜色', detail: '更改颜色功能', life: 3000 });
-            addHistory(); // 添加历史记录
+            currentSubMenu.value = 'color';
         }
     },
     {
+        id: 'change-border',
         icon: 'pi pi-bullseye',
         label: '更改边框',
         command: () => {
-            // 更改边框逻辑
-            toast.add({ severity: 'info', summary: '边框', detail: '更改边框功能', life: 3000 });
-            addHistory(); // 添加历史记录
+            currentSubMenu.value = 'border';
         }
     },
     {
-        icon: 'pi pi-comment',
-        label: '评论',
+        id: 'change-text',
+        icon: 'pi pi-font',
+        label: '文本设置',
         command: () => {
-            // 评论逻辑
-            toast.add({ severity: 'info', summary: '评论', detail: '添加评论功能', life: 3000 });
+            currentSubMenu.value = 'text';
+        },
+        requireText: true
+    },
+    {
+        id: 'duplicate',
+        icon: 'pi pi-copy',
+        label: '复制',
+        command: () => {
+            duplicatePage();
         }
     },
     {
-        icon: 'pi pi-ellipsis-v',
-        label: '更多设置',
-        items: [
-            {
-                icon: 'pi pi-download',
-                label: '导出',
-                command: () => {
-                    toast.add({ severity: 'info', summary: '导出', detail: '导出功能', life: 3000 });
-                }
-            },
-            {
-                icon: 'pi pi-copy',
-                label: '复制',
-                command: () => {
-                    toast.add({ severity: 'info', summary: '复制', detail: '复制功能', life: 3000 });
-                }
-            },
-            {
-                icon: 'pi pi-trash',
-                label: '删除',
-                command: () => {
-                    deletePageItem(); // 使用统一的删除方法
-                }
-            }
-        ]
+        id: 'delete',
+        icon: 'pi pi-trash',
+        label: '删除',
+        command: () => {
+            deleteCurrentPage();
+        }
+    },
+    {
+        id: 'bring-to-front',
+        icon: 'pi pi-arrow-up',
+        label: '置顶',
+        command: () => {
+            bringToFront();
+        }
+    },
+    {
+        id: 'send-to-back',
+        icon: 'pi pi-arrow-down',
+        label: '置底',
+        command: () => {
+            sendToBack();
+        }
     }
 ]);
 
@@ -1047,66 +1471,66 @@ const initCanvas = () => {
 };
 
 const getAllDomPoint = () => {
-  nextTick(() => {
-    if (!canvasRef.value) return;
-    
-    rectInfoList.value.clear(); // 清空之前的记录
-    
-    for (const key of canvasRef.value.children) {
-      const id = key.getAttribute('data-id') || '';
-      const element = key as HTMLElement;
-      
-      // 直接从元素的 style 属性获取位置，这是画布坐标系中的位置
-      const style = element.style;
-      const x = parseFloat(style.left) || 0;
-      const y = parseFloat(style.top) || 0;
-      const width = parseFloat(style.width) || 0;
-      const height = parseFloat(style.height) || 0;
+    nextTick(() => {
+        if (!canvasRef.value) return;
 
-      rectInfoList.value.set(id, {
-        id,
-        x,
-        y,
-        width,
-        height,
-      });
-    }
-    console.log('rectInfoList', rectInfoList.value);
-  });
+        rectInfoList.value.clear(); // 清空之前的记录
+
+        for (const key of canvasRef.value.children) {
+            const id = key.getAttribute('data-id') || '';
+            const element = key as HTMLElement;
+
+            // 直接从元素的 style 属性获取位置，这是画布坐标系中的位置
+            const style = element.style;
+            const x = parseFloat(style.left) || 0;
+            const y = parseFloat(style.top) || 0;
+            const width = parseFloat(style.width) || 0;
+            const height = parseFloat(style.height) || 0;
+
+            rectInfoList.value.set(id, {
+                id,
+                x,
+                y,
+                width,
+                height,
+            });
+        }
+        console.log('rectInfoList', rectInfoList.value);
+    });
 };
 
 // 修改 computedIsSelected 函数
 const computedIsSelected = (areaPoint: AreaPoint, rectInfo: RectInfo) => {
-  const { startX, startY, endX, endY } = areaPoint;
-  
-  // 将屏幕坐标转换为画布坐标
-  const canvasStartX = (startX - transformRef.value.x) / transformRef.value.scale;
-  const canvasStartY = (startY - transformRef.value.y) / transformRef.value.scale;
-  const canvasEndX = (endX - transformRef.value.x) / transformRef.value.scale;
-  const canvasEndY = (endY - transformRef.value.y) / transformRef.value.scale;
+    const { startX, startY, endX, endY } = areaPoint;
 
-  // 使用元素的原始画布坐标（不需要转换）
-  const { x, y, width, height } = rectInfo;
+    // 将屏幕坐标转换为画布坐标
+    const canvasStartX = (startX - transformRef.value.x) / transformRef.value.scale;
+    const canvasStartY = (startY - transformRef.value.y) / transformRef.value.scale;
+    const canvasEndX = (endX - transformRef.value.x) / transformRef.value.scale;
+    const canvasEndY = (endY - transformRef.value.y) / transformRef.value.scale;
 
-  // 计算选择框的边界
-  const selectionLeft = Math.min(canvasStartX, canvasEndX);
-  const selectionTop = Math.min(canvasStartY, canvasEndY);
-  const selectionRight = Math.max(canvasStartX, canvasEndX);
-  const selectionBottom = Math.max(canvasStartY, canvasEndY);
+    // 使用元素的原始画布坐标（不需要转换）
+    const { x, y, width, height } = rectInfo;
 
-  // 计算元素的边界
-  const elementLeft = x;
-  const elementTop = y;
-  const elementRight = x + width;
-  const elementBottom = y + height;
+    // 计算选择框的边界
+    const selectionLeft = Math.min(canvasStartX, canvasEndX);
+    const selectionTop = Math.min(canvasStartY, canvasEndY);
+    const selectionRight = Math.max(canvasStartX, canvasEndX);
+    const selectionBottom = Math.max(canvasStartY, canvasEndY);
 
-  // 检查元素是否在选择框内（任何重叠）
-  return (
-    elementLeft <= selectionRight &&
-    elementRight >= selectionLeft &&
-    elementTop <= selectionBottom &&
-    elementBottom >= selectionTop
-  );
+    // 计算元素的边界
+    const elementLeft = x;
+    const elementTop = y;
+    const elementRight = x + width;
+    const elementBottom = y + height;
+
+    // 检查元素是否在选择框内（任何重叠）
+    return (
+        elementLeft <= selectionRight &&
+        elementRight >= selectionLeft &&
+        elementTop <= selectionBottom &&
+        elementBottom >= selectionTop
+    );
 };
 
 const pasteElement = () => {
@@ -1283,7 +1707,13 @@ const extractMinimap = () => {
     });
 };
 
+// 浮动菜单的操作
+const ClickBoardMeun = (item: menuData) => {
+    switch (item.action) {
 
+    }
+
+}
 
 
 
@@ -1324,67 +1754,228 @@ onUnmounted(() => {
 
 <style scoped>
 .canvas-container {
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    position: relative;
-    background: #f8f9fa;
-    touch-action: none;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  background: #f8f9fa;
+  touch-action: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .grid-bg {
-    pointer-events: none;
-    overflow: hidden;
+  pointer-events: none;
+  overflow: hidden;
 }
 
 .canvas {
-    z-index: 1;
+  z-index: 1;
 }
 
 .minimap {
-    z-index: 1000;
-    backdrop-filter: blur(8px);
+  z-index: 1000;
+  backdrop-filter: blur(8px);
 }
 
 .slider {
-    width: 100%;
-    height: 90%;
+  width: 100%;
+  height: 90%;
 }
 
 .slider__content {
-    width: 100%;
-    height: 100%;
-    background: white;
+  width: 100%;
+  height: 100%;
+  background: white;
 }
 
 .canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    user-select: none;
-    pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  user-select: none;
+  pointer-events: none;
 }
 
 /* 浮动菜单样式 */
 .global-floating-menu {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    border: 1px solid #e5e7eb;
-    padding: 8px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  z-index: 10;
 }
 
 /* 页面悬停时显示浮动按钮 */
 .page-item:hover .floating-trigger {
-    opacity: 1 !important;
+  opacity: 1 !important;
 }
 
 /* 按钮禁用样式 */
 button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.global-floating-menu {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  backdrop-filter: blur(8px);
+}
+
+.floating-menu-content {
+  padding: 8px;
+  min-width: 180px;
+}
+
+.menu-items-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.menu-item:hover:not(.disabled) {
+  background: #f3f4f6;
+  transform: translateY(-1px);
+}
+
+.menu-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.menu-icon {
+  font-size: 18px;
+  margin-bottom: 6px;
+  color: #6b7280;
+}
+
+.menu-label {
+  font-size: 12px;
+  color: #374151;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* 子菜单样式 */
+.sub-menu-section {
+  padding: 12px;
+  min-width: 250px;
+}
+
+.shape-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.shape-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.shape-item:hover {
+  background: #f3f4f6;
+}
+
+.shape-item.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.shape-preview {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 4px;
+  border: 2px solid currentColor;
+}
+
+.shape-circle {
+  border-radius: 50%;
+}
+
+.shape-Rect {
+  border-radius: 4px;
+}
+
+.shape-Line {
+  width: 24px;
+  height: 2px;
+  background: currentColor;
+  margin: 15px 0;
+}
+
+.shape-Text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.shape-Curve {
+  position: relative;
+  overflow: hidden;
+}
+
+.shape-Curve::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  transform: translateY(-50%);
+}
+
+.shape-label {
+  font-size: 10px;
+  text-align: center;
+}
+
+/* 控制组样式 */
+.control-group {
+  margin-bottom: 12px;
+}
+
+.control-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #374151;
+}
+
+.border-controls,
+.text-controls {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* 页面悬停时显示浮动按钮 */
+.page-item:hover .floating-trigger {
+  opacity: 1 !important;
 }
 </style>
