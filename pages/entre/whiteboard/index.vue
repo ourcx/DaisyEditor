@@ -613,32 +613,39 @@ const handlePositionUpdate = (newPosition: { x: number; y: number }, id: number)
 };
 
 // 在父组件中修改 handleSizeUpdate
+// 在父组件中修改 handleSizeUpdate
 const handleSizeUpdate = (newScale: { width: number; height: number; scaleX: number; scaleY: number }, id: number) => {
-    console.log('Size update:', newScale);
+  console.log('Size update:', newScale);
+  
+  pages.value = pages.value.map((page) => {
+    if (page.id === id) {
+      // 计算中心点保持不变的位置偏移
+      const centerX = page.rect.x + page.rect.width / 2;
+      const centerY = page.rect.y + page.rect.height / 2;
+      
+      const newX = centerX - newScale.width / 2;
+      const newY = centerY - newScale.height / 2;
 
-    pages.value = pages.value.map((page) => {
-        if (page.id === id) {
-            return {
-                ...page,
-                rect: {
-                    width: newScale.width,
-                    height: newScale.height,
-                    x: page.rect.x - (newScale.width - page.rect.width) / 2,
-                    y: page.rect.y - (newScale.height - page.rect.height) / 2,
-                    scaleX: newScale.scaleX,
-                    scaleY: newScale.scaleY
-                }
-            }
+      return {
+        ...page,
+        rect: {
+          ...page.rect,
+          width: newScale.width,
+          height: newScale.height,
+          x: newX,
+          y: newY,
+          scaleX: newScale.scaleX,
+          scaleY: newScale.scaleY
         }
-        return page;
-    });
-
-    // 只在最终更新时保存到数据库
-    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+      }
+    }
+    return page;
+  });
+  
+  // 保存到数据库
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
 };
 
-// 添加防抖定时器
-const sizeUpdateTimeout = ref<NodeJS.Timeout | null>(null);
 // 事件处理函数
 const eventHandlers = {
     // 画布拖拽
