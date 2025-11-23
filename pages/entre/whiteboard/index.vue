@@ -17,7 +17,8 @@
                 }" @click="handlePageClick($event, page)">
                 <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width"
                     :cy="page.rect.height" :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id"
-                    @update:position="handlePositionUpdate" @update:size="handleSizeUpdate" />
+                    @update:position="handlePositionUpdate" @update:size="handleSizeUpdate" :scaleX="page.rect.scaleX"
+                    :scaleY="page.rect.scaleY" />
 
                 <!-- 浮动菜单触发按钮 -->
                 <Button icon="pi pi-equals" severity="secondary" variant="text" raised rounded aria-label="Bookmark"
@@ -611,21 +612,33 @@ const handlePositionUpdate = (newPosition: { x: number; y: number }, id: number)
     })
 };
 
-const handleSizeUpdate = (newScale: { width: number; height: number }, id: number) => {
-    // pages.value = pages.value.map((page) => {
-    //     if (page.id === id) {
-    //         return {
-    //             ...page,
-    //             rect: {
-    //                 ...page.rect,
-    //                 width: page.rect.width * newScale.width,
-    //                 height: page.rect.height * newScale.height
-    //             }
-    //         }
-    //     }
-    //     return page;
-    // })
+// 在父组件中修改 handleSizeUpdate
+const handleSizeUpdate = (newScale: { width: number; height: number; scaleX: number; scaleY: number }, id: number) => {
+    console.log('Size update:', newScale);
+
+    pages.value = pages.value.map((page) => {
+        if (page.id === id) {
+            return {
+                ...page,
+                rect: {
+                    width: newScale.width,
+                    height: newScale.height,
+                    x: page.rect.x - (newScale.width - page.rect.width) / 2,
+                    y: page.rect.y - (newScale.height - page.rect.height) / 2,
+                    scaleX: newScale.scaleX,
+                    scaleY: newScale.scaleY
+                }
+            }
+        }
+        return page;
+    });
+
+    // 只在最终更新时保存到数据库
+    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
 };
+
+// 添加防抖定时器
+const sizeUpdateTimeout = ref<NodeJS.Timeout | null>(null);
 // 事件处理函数
 const eventHandlers = {
     // 画布拖拽
