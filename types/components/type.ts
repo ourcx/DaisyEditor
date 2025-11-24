@@ -3,7 +3,7 @@ export interface ShapesProps {
   id: number;
   width?: number;
   height?: number;
-  shape?: string;
+  shape?: Shape;
   margin?: { top: number; right: number; bottom: number; left: number };
   data?: Array<{ x: number; y: number }>;
   type?: string; // 添加这一行
@@ -26,9 +26,13 @@ export interface ShapesProps {
   strokeColor?: string;
   strokeWidth?: number;
   image?: string;
+  filter?: filter
 }
-type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie";
-export interface Margin{
+export type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie" | "Image"
+
+export type filter= 'blur' | 'grayscale' | 'invert' | 'none'
+
+export interface Margin {
   top: number
   right: number
   bottom: number
@@ -45,17 +49,17 @@ export interface ShapeScale {
 }
 
 export interface menuProps {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-    data?: menuData[];
-    visible?: boolean;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  data?: menuData[];
+  visible?: boolean;
 }
 
 export type menuData = {
-    name: string;
-    icon: string;
-    action: string;
-    params?: unknown;
+  name: string;
+  icon: string;
+  action: string;
+  params?: unknown;
 };

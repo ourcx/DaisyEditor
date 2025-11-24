@@ -1,3 +1,5 @@
+import type { filter, Shape } from "./components/type";
+
 // 在 types/type.ts 中更新
 export interface Rect { 
   x: number; 
@@ -10,7 +12,7 @@ export interface Rect {
 
 export interface WhithBoardItemProps { 
   rect: Rect; 
-  type: string; 
+  type: Shape; 
   background: string; 
   borderWidth: number; 
   borderColor: string; 
@@ -19,6 +21,7 @@ export interface WhithBoardItemProps {
   textSize?: number;
   textWeight?: string;
   image?: string;
+  filter?: filter
 }
 
 export type AreaPoint = {
@@ -41,4 +44,11 @@ export interface MenuItem {
   label: string
   icon: string
   handler: () => void
+}
+
+
+export interface MenuData {
+  id: Shape,
+  label: string,
+  icon: string,
 }

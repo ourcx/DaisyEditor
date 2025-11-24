@@ -19,7 +19,8 @@
         <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width" :cy="page.rect.height"
           :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id" @update:size="handleSizeUpdate"
           :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" :color="page.background" :shape="page.type"
-          :strokeColor="page.borderColor" :strokeWidth="page.borderWidth" :image="page.image || ''" />
+          :strokeColor="page.borderColor" :strokeWidth="page.borderWidth" :image="page.image || ''"
+          :filter="page.filter" />
 
         <!-- 浮动菜单触发按钮 -->
         <Button icon="pi pi-equals" severity="secondary" variant="text" raised rounded aria-label="Bookmark"
@@ -238,14 +239,14 @@ import { useRouter } from 'vue-router';
 import { ref, computed, onMounted, nextTick, reactive, type CSSProperties } from 'vue';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
-import type { AreaPoint, MenuItem, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
+import type { AreaPoint, MenuData, MenuItem, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
 import { useEventManager } from '~/server/DomEvent';
 import BoardItem from '~/components/Board/BoardItem.vue';
 import BoardLeft from '~/components/Board/BoardLeft.vue';
 import { useHistoryStore } from '~/store/HistoryStore';
 import { useToast } from 'primevue/usetoast';
 import BoardMeun from '~/components/Board/BoardMeun.vue';
-import type { menuData } from '~/types/components/type';
+import type { menuData, Shape } from '~/types/components/type';
 
 const historyStore = useHistoryStore();
 const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
@@ -261,7 +262,11 @@ const pages = ref<WhithBoardProps[]>([
   { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 1, },
   { rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 2 },
   { rect: { x: -300, y: 400, width: 200, height: 200 }, type: 'Line', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 3 },
-  { rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg' },
+  { rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
+  { rect: { x: 800, y: 800, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 5, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
+  { rect: { x: 1000, y: 200, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 6, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
+  { rect: { x: 500, y: 400, width: 200, height: 200 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World' },
+  { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8 },
 ]);
 const WHITEBOARDPAGES = "whiteboard-pages"
 const isGuide = ref(true);
@@ -340,7 +345,7 @@ const canUndo = computed(() => historyStore.cur > 0);
 const canRedo = computed(() => historyStore.cur < historyStore.history.length - 1);
 const colorValue = ref<string>('e3f2fd');
 const currentSubMenu = ref<string | null>(null);
-const selectedShape = ref<string>('circle');
+const selectedShape = ref<Shape>('circle');
 const borderWidth = ref<number>(1);
 const borderColor = ref<string>('2196f3');
 const textContent = ref<string>('文本');
@@ -348,7 +353,7 @@ const textSize = ref<number>(16);
 const textWeight = ref<string>('normal');
 const currentPageType = ref<string>('');
 // 可用的形状类型
-const availableShapes = [
+const availableShapes: MenuData[] = [
   { id: 'circle', label: '圆形', icon: 'pi pi-circle' },
   { id: 'Rect', label: '矩形', icon: 'pi pi-square' },
   { id: 'Line', label: '线条', icon: 'pi pi-minus' },
@@ -551,7 +556,7 @@ const handleFloatingAction = (item: any) => {
 };
 
 // 选择形状
-const selectShape = (shapeId: string) => {
+const selectShape = (shapeId: Shape) => {
   selectedShape.value = shapeId;
 };
 
@@ -709,6 +714,12 @@ const sendToBack = () => {
   }
 };
 
+
+const imageSetting = () => {
+  //图片设置滤镜
+
+}
+
 // 修改 toggleFloatingMenu 函数，添加状态初始化
 const toggleFloatingMenu = (event: MouseEvent, page: WhithBoardProps) => {
   event.stopPropagation();
@@ -860,6 +871,15 @@ const floatingMenuItems = ref([
     label: '置底',
     command: () => {
       sendToBack();
+    }
+  },
+  //图片设置，滤镜什么的
+  {
+    id: 'image-setting',
+    icon: 'pi pi-cog',
+    label: '图片设置',
+    command: () => {
+      imageSetting();
     }
   }
 ]);

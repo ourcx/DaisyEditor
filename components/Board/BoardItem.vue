@@ -1,3 +1,4 @@
+
 <template>
   <div ref="shapeContainer" class="shape-container"></div>
 </template>
@@ -6,10 +7,8 @@
 import { ref, onMounted, watch, nextTick, onUnmounted } from "vue";
 import { select } from "d3-selection";
 import { arc, pie, curveBasis, curveBasisClosed, line } from "d3-shape";
-// 引入你提供的类型定义
-import type { ShapesProps } from "~/types/components/type";
+import type { filter, ShapesProps } from "~/types/components/type";
 
-// 这里的 definePageMeta 是 Nuxt 特有的，如果不是页面组件可以忽略
 definePageMeta({
   layout: false,
 });
@@ -48,6 +47,7 @@ const props = withDefaults(defineProps<ShapesProps>(), {
   strokeColor: "#2d5a3d",
   strokeWidth: 2,
   image: "",
+  filter: "none", // 默认不应用滤镜
 });
 
 const ID = `${props.id}-svg`;
@@ -57,7 +57,7 @@ let selectionGroup: any = null;
 let currentShape: any = null;
 
 // --- 图片缓存优化 ---
-const imageCache = new Map(); // 全局图片缓存
+const imageCache = new Map();
 let cachedImageElement: any = null;
 
 // --- 拖拽状态管理 ---
@@ -78,10 +78,10 @@ let scaleX = props.scaleX;
 let scaleY = props.scaleY;
 
 let animationFrameId: number | null = null;
+
 // --- 优化的图片加载函数 ---
 const loadImage = (src: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
-    // 检查缓存
     if (imageCache.has(src)) {
       resolve(imageCache.get(src));
       return;
@@ -97,16 +97,86 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
+// --- 创建滤镜定义 ---
+const createFilterDefinitions = () => {
+  if (!currentSvg) return;
+
+  const defs = currentSvg.select("defs").node() 
+    ? currentSvg.select("defs") 
+    : currentSvg.append("defs");
+
+  // 移除旧的滤镜定义
+  defs.selectAll(`.filter-${props.id}`).remove();
+
+  // 模糊滤镜
+  const blurFilter = defs.append("filter")
+    .attr("id", `blur-filter-${props.id}`)
+    .attr("class", `filter-${props.id}`)
+    .attr("x", "-50%")
+    .attr("y", "-50%")
+    .attr("width", "200%")
+    .attr("height", "200%");
+
+  blurFilter.append("feGaussianBlur")
+    .attr("in", "SourceGraphic")
+    .attr("stdDeviation", 5);
+
+  // 灰度滤镜
+  const grayscaleFilter = defs.append("filter")
+    .attr("id", `grayscale-filter-${props.id}`)
+    .attr("class", `filter-${props.id}`);
+
+  grayscaleFilter.append("feColorMatrix")
+    .attr("type", "matrix")
+    .attr("values", "0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0");
+
+  // 反转滤镜
+  const invertFilter = defs.append("filter")
+    .attr("id", `invert-filter-${props.id}`)
+    .attr("class", `filter-${props.id}`);
+
+  invertFilter.append("feComponentTransfer")
+    .append("feFuncR")
+    .attr("type", "table")
+    .attr("tableValues", "1 0");
+
+  invertFilter.select("feComponentTransfer")
+    .append("feFuncG")
+    .attr("type", "table")
+    .attr("tableValues", "1 0");
+
+  invertFilter.select("feComponentTransfer")
+    .append("feFuncB")
+    .attr("type", "table")
+    .attr("tableValues", "1 0");
+};
+
+// --- 获取滤镜 URL ---
+const getFilterUrl = (filterType: filter): string | null => {
+  if (filterType === 'none') return null;
+  console.log('getFilterUrl', filterType);
+  //得到滤镜
+  return `url(#${filterType}-filter-${props.id})`;
+};
+
 // --- 优化的图片渲染函数 ---
-const renderImage = async () => {
+const renderImage = async (): Promise<any> => {
   if (!props.image) {
     console.warn("Image source is missing");
     return null;
   }
 
   try {
+    // 清除之前的图片
+    currentSvg.selectAll("image").remove();
+    
+    // 创建滤镜定义
+    createFilterDefinitions();
+    
     // 使用缓存的图片或加载新图片
-    const img = await loadImage(props.image);
+    await loadImage(props.image);
+    
+    // 创建图片元素
     const imageElement = currentSvg
       .append("image")
       .attr("xlink:href", props.image)
@@ -114,21 +184,71 @@ const renderImage = async () => {
       .attr("height", props.height)
       .attr("stroke", props.strokeColor)
       .attr("stroke-width", props.strokeWidth)
-      .attr("fill", props.color);
+      .attr("fill", props.color || "none")
+      .attr("preserveAspectRatio", "xMidYMid meet"); // 保持图片比例
+
+    // 应用滤镜
+    const filterUrl = getFilterUrl(props.filter);
+    if (filterUrl) {
+      imageElement.attr("filter", filterUrl);
+    }
+
+    // 添加悬停效果
+    // imageElement
+    //   .style("cursor", "pointer")
+    //   .on("mouseover", function() {
+    //     //@ts-ignore
+    //     select(this).transition().duration(200).attr("opacity", 0.8);
+    //   })
+    //   .on("mouseout", function() {
+    //     //@ts-ignore
+    //     select(this).transition().duration(200).attr("opacity", 1);
+    //   });
 
     cachedImageElement = imageElement;
     return imageElement;
   } catch (error) {
     console.error("Failed to load image:", props.image, error);
-    return null;
+    
+    // 加载失败时显示占位符
+    const placeholder = currentSvg
+      .append("rect")
+      .attr("width", props.width)
+      .attr("height", props.height)
+      .attr("fill", "#f0f0f0")
+      .attr("stroke", "#ccc")
+      .attr("stroke-width", 1);
+      
+    currentSvg
+      .append("text")
+      .attr("x", props.width / 2)
+      .attr("y", props.height / 2)
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "middle")
+      .attr("fill", "#999")
+      .text("图片加载失败");
+      
+    return placeholder;
   }
 };
 
-// --- 选择框管理逻辑（抽离出来）---
+// --- 更新图片滤镜 ---
+const updateImageFilter = (filterType: filter) => {
+  if (!cachedImageElement || props.shape !== "Image") return;
+  
+  const filterUrl = getFilterUrl(filterType);
+  
+  if (filterUrl) {
+    cachedImageElement.attr("filter", filterUrl);
+  } else {
+    cachedImageElement.attr("filter", null);
+  }
+};
+
+// --- 选择框管理逻辑 ---
 const createSelectionGroup = () => {
   if (!currentSvg) return;
 
-  // 如果选择框已存在，先移除
   if (selectionGroup) {
     selectionGroup.remove();
   }
@@ -138,9 +258,14 @@ const createSelectionGroup = () => {
     .attr("class", "selection-group")
     .style("display", props.boxshow ? "block" : "none");
 
-  // 创建滤镜
+  // 创建选择框阴影滤镜
   const fillColor = props.color || "#bcecd4";
-  const defs = currentSvg.append("defs");
+  const defs = currentSvg.select("defs").node() 
+    ? currentSvg.select("defs") 
+    : currentSvg.append("defs");
+    
+  defs.select(`#colored-shadow-${props.id}`).remove();
+  
   const shadowFilter = defs
     .append("filter")
     .attr("id", `colored-shadow-${props.id}`)
@@ -166,7 +291,6 @@ const createSelectionGroup = () => {
 const updateSelectionBox = (shape: any) => {
   if (!shape || !props.boxshow || !selectionGroup) return;
 
-  // 获取形状的边界框
   const bbox = shape.node().getBBox();
   const padding = 8;
   const selectionX = bbox.x - padding;
@@ -349,7 +473,7 @@ const handleGlobalMouseUp = () => {
   );
 };
 
-// --- 核心绘图逻辑（简化，移除选择框相关代码）---
+// --- 核心绘图逻辑 ---
 const init = async () => {
   if (!shapeContainer.value) return;
 
@@ -504,6 +628,16 @@ watch(
   }
 );
 
+// 单独监听滤镜变化
+watch(
+  () => props.filter,
+  (newFilter, oldFilter) => {
+    if (newFilter !== oldFilter && props.shape === "Image") {
+      updateImageFilter(newFilter);
+    }
+  }
+);
+
 // 单独监听选择框显示状态
 watch(
   () => props.boxshow,
@@ -577,5 +711,15 @@ onUnmounted(() => {
   r: 6;
   /* 轻微放大效果 */
   transform: translateZ(0) scale(1.1);
+}
+
+/* 图片滤镜效果预览样式 */
+.image-filter-preview {
+  border: 2px solid transparent;
+  transition: border-color 0.3s ease;
+}
+
+.image-filter-preview:hover {
+  border-color: #1890ff;
 }
 </style>
