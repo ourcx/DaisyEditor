@@ -42,6 +42,7 @@
           :shape="page.type"
           :strokeColor="page.borderColor"
           :strokeWidth="page.borderWidth"
+          :image="page.image || ''"
         />
 
         <!-- 浮动菜单触发按钮 -->
@@ -416,7 +417,8 @@ const transformRef = ref({ x: 0, y: 0, scale: 1 });
 const pages = ref<WhithBoardProps[]>([
     { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 1, },
     { rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 2 },
-    { rect: { x: -300, y: 400, width: 200, height: 200 }, type: 'Line', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 3 }
+    { rect: { x: -300, y: 400, width: 200, height: 200 }, type: 'Line', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 3 },
+    { rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4,image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg' },
 ]);
 const WHITEBOARDPAGES = "whiteboard-pages"
 const isGuide = ref(true);
@@ -947,6 +949,7 @@ const clickPageItem = (e: MouseEvent) => {
     if (highRectList.value.has(id)) {
         highRectList.value.delete(id);
     } else {
+        highRectList.value.clear();
         highRectList.value.add(id);
     }
 };

@@ -18,6 +18,7 @@ export interface WhithBoardItemProps {
   text?: string;
   textSize?: number;
   textWeight?: string;
+  image?: string;
 }
 
 export type AreaPoint = {

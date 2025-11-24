@@ -47,6 +47,7 @@ const props = withDefaults(defineProps<ShapesProps>(), {
   scaleY: 1,
   strokeColor: "#2d5a3d",
   strokeWidth: 2,
+  image: "",
 });
 
 const ID = `${props.id}-svg`;
@@ -55,7 +56,11 @@ let currentSvg: any = null;
 let selectionGroup: any = null;
 let currentShape: any = null;
 
-// --- 1. 拖拽状态管理 (State) ---
+// --- 图片缓存优化 ---
+const imageCache = new Map(); // 全局图片缓存
+let cachedImageElement: any = null;
+
+// --- 拖拽状态管理 ---
 const dragState = {
   isResizing: false,
   resizeType: "" as string | null,
@@ -64,7 +69,7 @@ const dragState = {
   startWidth: 0,
   startHeight: 0,
 };
-// ★★★ 关键点：在绘图时也确保使用 Number 类型，防止 SVG 属性报错
+
 let safeWidth = Number(props.width);
 let safeHeight = Number(props.height);
 let newWidth: number = safeWidth;
@@ -72,15 +77,195 @@ let newHeight: number = safeHeight;
 let scaleX = props.scaleX;
 let scaleY = props.scaleY;
 
-// 在 BoardItem 中添加
 let animationFrameId: number | null = null;
-const MIN_SIZE = 20;
-const MAX_SIZE = 500;
-// 修改 handleGlobalMouseMove
+// --- 优化的图片加载函数 ---
+const loadImage = (src: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    // 检查缓存
+    if (imageCache.has(src)) {
+      resolve(imageCache.get(src));
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      imageCache.set(src, img);
+      resolve(img);
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+};
+
+// --- 优化的图片渲染函数 ---
+const renderImage = async () => {
+  if (!props.image) {
+    console.warn("Image source is missing");
+    return null;
+  }
+
+  try {
+    // 使用缓存的图片或加载新图片
+    const img = await loadImage(props.image);
+    const imageElement = currentSvg
+      .append("image")
+      .attr("xlink:href", props.image)
+      .attr("width", props.width)
+      .attr("height", props.height)
+      .attr("stroke", props.strokeColor)
+      .attr("stroke-width", props.strokeWidth)
+      .attr("fill", props.color);
+
+    cachedImageElement = imageElement;
+    return imageElement;
+  } catch (error) {
+    console.error("Failed to load image:", props.image, error);
+    return null;
+  }
+};
+
+// --- 选择框管理逻辑（抽离出来）---
+const createSelectionGroup = () => {
+  if (!currentSvg) return;
+
+  // 如果选择框已存在，先移除
+  if (selectionGroup) {
+    selectionGroup.remove();
+  }
+
+  selectionGroup = currentSvg
+    .append("g")
+    .attr("class", "selection-group")
+    .style("display", props.boxshow ? "block" : "none");
+
+  // 创建滤镜
+  const fillColor = props.color || "#bcecd4";
+  const defs = currentSvg.append("defs");
+  const shadowFilter = defs
+    .append("filter")
+    .attr("id", `colored-shadow-${props.id}`)
+    .attr("x", "-50%")
+    .attr("y", "-50%")
+    .attr("width", "200%")
+    .attr("height", "200%");
+
+  shadowFilter
+    .append("feDropShadow")
+    .attr("stdDeviation", 8)
+    .attr("flood-color", fillColor)
+    .attr("flood-opacity", 1);
+  shadowFilter
+    .append("feDropShadow")
+    .attr("dx", 1)
+    .attr("dy", 2)
+    .attr("stdDeviation", 3)
+    .attr("flood-color", "#333333")
+    .attr("flood-opacity", 0.3);
+};
+
+const updateSelectionBox = (shape: any) => {
+  if (!shape || !props.boxshow || !selectionGroup) return;
+
+  // 获取形状的边界框
+  const bbox = shape.node().getBBox();
+  const padding = 8;
+  const selectionX = bbox.x - padding;
+  const selectionY = bbox.y - padding;
+  const selectionWidth = bbox.width + padding;
+  const selectionHeight = bbox.height + padding;
+
+  selectionGroup.selectAll("*").remove();
+
+  // 1. 绘制虚线框
+  selectionGroup
+    .append("rect")
+    .attr("x", selectionX)
+    .attr("y", selectionY)
+    .attr("width", selectionWidth)
+    .attr("height", selectionHeight)
+    .attr("class", "selection-rect")
+    .style("stroke", "#1890ff")
+    .style("stroke-width", 1)
+    .style("stroke-dasharray", "5,5")
+    .style("fill", "none");
+
+  // 2. 准备控制点位置
+  const controlPoints = [
+    { x: selectionX, y: selectionY, cursor: "nw-resize" },
+    { x: selectionX + selectionWidth, y: selectionY, cursor: "ne-resize" },
+    { x: selectionX, y: selectionY + selectionHeight, cursor: "sw-resize" },
+    {
+      x: selectionX + selectionWidth,
+      y: selectionY + selectionHeight,
+      cursor: "se-resize",
+    },
+    { x: selectionX + selectionWidth / 2, y: selectionY, cursor: "n-resize" },
+    { x: selectionX, y: selectionY + selectionHeight / 2, cursor: "w-resize" },
+    {
+      x: selectionX + selectionWidth / 2,
+      y: selectionY + selectionHeight,
+      cursor: "s-resize",
+    },
+    {
+      x: selectionX + selectionWidth,
+      y: selectionY + selectionHeight / 2,
+      cursor: "e-resize",
+    },
+  ];
+
+  // 3. 绘制控制点
+  const controlPointsElements = selectionGroup
+    .selectAll(".control-point")
+    .data(controlPoints)
+    .enter()
+    .append("circle")
+    .attr("class", "control-point")
+    .attr("cx", (d: any) => d.x)
+    .attr("cy", (d: any) => d.y)
+    .attr("r", 5)
+    .attr("fill", "#fff")
+    .attr("stroke", "#1890ff")
+    .attr("stroke-width", 1)
+    .style("cursor", (d: any) => d.cursor)
+    .style("pointer-events", "all");
+
+  // 4. 绑定 MouseDown 事件
+  controlPointsElements.on("mousedown", function (event: MouseEvent, d: any) {
+    event.stopPropagation();
+    event.preventDefault();
+
+    dragState.isResizing = true;
+    dragState.resizeType = d.cursor;
+    dragState.startX = event.clientX;
+    dragState.startY = event.clientY;
+
+    const svgElement = document.getElementsByClassName(ID)[0] as HTMLElement;
+    if (svgElement) {
+      dragState.startWidth = newWidth;
+      dragState.startHeight = newHeight;
+    } else {
+      dragState.startWidth = Number(props.width) || 200;
+      dragState.startHeight = Number(props.height) || 200;
+    }
+
+    document.addEventListener("mousemove", handleGlobalMouseMove);
+    document.addEventListener("mouseup", handleGlobalMouseUp);
+  });
+};
+
+const updateSelectionVisibility = () => {
+  if (selectionGroup) {
+    selectionGroup.style("display", props.boxshow ? "block" : "none");
+    if (props.boxshow && currentShape) {
+      nextTick(() => updateSelectionBox(currentShape));
+    }
+  }
+};
+
+// --- 拖拽处理函数 ---
 const handleGlobalMouseMove = (event: MouseEvent) => {
   if (!dragState.isResizing || !dragState.resizeType) return;
 
-  // 使用requestAnimationFrame优化性能
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId);
   }
@@ -164,16 +349,22 @@ const handleGlobalMouseUp = () => {
   );
 };
 
-// --- 4. 核心绘图逻辑 ---
-const init = () => {
+// --- 核心绘图逻辑（简化，移除选择框相关代码）---
+const init = async () => {
   if (!shapeContainer.value) return;
+
+  // 清除容器但保留缓存的图片元素引用
   shapeContainer.value.innerHTML = "";
+  // 重置当前形状引用，但保留缓存的图片元素
+  if (props.shape !== "Image") {
+    cachedImageElement = null;
+  }
 
   currentSvg = select((shapeContainer.value as unknown) as Element)
     .append("svg")
     .attr("class", ID)
-    .attr("width", props.width) // 使用原始宽度
-    .attr("height", props.height) // 使用原始高度
+    .attr("width", props.width)
+    .attr("height", props.height)
     .attr("viewBox", `0 0 ${props.width} ${props.height}`)
     .attr("preserveAspectRatio", "none")
     .style("overflow", "visible");
@@ -183,40 +374,9 @@ const init = () => {
   const centerY = props.height / 2;
   const r = Math.min(props.width - 20, props.height - 20) / 2;
 
-  // 创建选择框组
-  selectionGroup = currentSvg
-    .append("g")
-    .attr("class", "selection-group")
-    .style("display", props.boxshow ? "block" : "none");
-
   // 应用初始缩放
   console.log(scaleX, scaleY, "初始化的缩放比例");
   currentSvg.style("transform", `scale(${scaleX}, ${scaleY})`);
-
-  // 定义滤镜 - 为所有形状定义，包括 Line
-  if (props.boxshow) {
-    const defs = currentSvg.append("defs");
-    const shadowFilter = defs
-      .append("filter")
-      .attr("id", `colored-shadow-${props.id}`) // 加上 ID 防止多个组件 ID 冲突
-      .attr("x", "-50%")
-      .attr("y", "-50%")
-      .attr("width", "200%")
-      .attr("height", "200%");
-
-    shadowFilter
-      .append("feDropShadow")
-      .attr("stdDeviation", 8)
-      .attr("flood-color", fillColor)
-      .attr("flood-opacity", 1);
-    shadowFilter
-      .append("feDropShadow")
-      .attr("dx", 1)
-      .attr("dy", 2)
-      .attr("stdDeviation", 3)
-      .attr("flood-color", "#333333")
-      .attr("flood-opacity", 0.3);
-  }
 
   currentShape = null;
 
@@ -246,12 +406,11 @@ const init = () => {
         .attr("stroke-width", props.strokeWidth);
       break;
     case "Line":
-      // 修复 Line 绘制逻辑
       currentShape = currentSvg
         .append("line")
-        .attr("x1", props.width * 0.1) // 使用比例而不是固定值
+        .attr("x1", props.width * 0.1)
         .attr("y1", centerY)
-        .attr("x2", props.width * 0.9) // 使用比例而不是固定值
+        .attr("x2", props.width * 0.9)
         .attr("y2", centerY)
         .attr("stroke", fillColor)
         .attr("stroke-width", 4)
@@ -273,7 +432,6 @@ const init = () => {
         .text(props.text || "Text");
       break;
     case "Curve": {
-      // 简单的曲线示例
       const curveData = [
         { x: props.width * 0.1, y: props.height * 0.9 },
         { x: props.width * 0.5, y: props.height * 0.1 },
@@ -295,9 +453,11 @@ const init = () => {
         .attr("stroke-width", props.strokeWidth);
       break;
     }
-    // ... 其他 case (Area, Arc, Pie) 依据同样逻辑处理 ...
+    case "Image":
+      // 使用优化的图片渲染
+      currentShape = await renderImage();
+      break;
     default:
-      // 默认圆形防止空白
       currentShape = currentSvg
         .append("circle")
         .attr("cx", centerX)
@@ -306,107 +466,14 @@ const init = () => {
         .attr("fill", fillColor);
   }
 
-  // 应用滤镜并绘制选择框 - 确保 Line 也应用滤镜
-  if (props.boxshow && currentShape) {
-    currentShape.attr("filter", `url(#colored-shadow-${props.id})`);
-    // 使用 nextTick 确保 DOM 渲染后再计算 BBox
+  createSelectionGroup();
+  if (currentShape) {
     nextTick(() => updateSelectionBox(currentShape));
   }
 };
 
-const updateSelectionBox = (shape: any) => {
-  if (!shape || !props.boxshow || !selectionGroup) return;
-
-  // 获取形状的边界框
-  const bbox = shape.node().getBBox();
-  const padding = 8;
-  const selectionX = bbox.x - padding;
-  const selectionY = bbox.y - padding;
-  const selectionWidth = bbox.width + padding * 2;
-  const selectionHeight = bbox.height + padding * 2;
-
-  selectionGroup.selectAll("*").remove();
-
-  // 1. 绘制虚线框
-  selectionGroup
-    .append("rect")
-    .attr("x", selectionX)
-    .attr("y", selectionY)
-    .attr("width", selectionWidth)
-    .attr("height", selectionHeight)
-    .attr("class", "selection-rect")
-    .style("stroke", "#1890ff")
-    .style("stroke-width", 1)
-    .style("stroke-dasharray", "5,5")
-    .style("fill", "none");
-
-  // 2. 准备控制点位置
-  const controlPoints = [
-    { x: selectionX, y: selectionY, cursor: "nw-resize" }, // 左上
-    { x: selectionX + selectionWidth, y: selectionY, cursor: "ne-resize" }, // 右上
-    { x: selectionX, y: selectionY + selectionHeight, cursor: "sw-resize" }, // 左下
-    {
-      x: selectionX + selectionWidth,
-      y: selectionY + selectionHeight,
-      cursor: "se-resize",
-    }, // 右下
-    { x: selectionX + selectionWidth / 2, y: selectionY, cursor: "n-resize" },
-    { x: selectionX, y: selectionY + selectionHeight / 2, cursor: "w-resize" },
-    {
-      x: selectionX + selectionWidth / 2,
-      y: selectionY + selectionHeight,
-      cursor: "s-resize",
-    },
-    {
-      x: selectionX + selectionWidth,
-      y: selectionY + selectionHeight / 2,
-      cursor: "e-resize",
-    },
-  ];
-
-  // 3. 绘制控制点
-  const controlPointsElements = selectionGroup
-    .selectAll(".control-point")
-    .data(controlPoints)
-    .enter()
-    .append("circle")
-    .attr("class", "control-point")
-    .attr("cx", (d: any) => d.x)
-    .attr("cy", (d: any) => d.y)
-    .attr("r", 5)
-    .attr("fill", "#fff")
-    .attr("stroke", "#1890ff")
-    .attr("stroke-width", 1)
-    .style("cursor", (d: any) => d.cursor)
-    .style("pointer-events", "all"); // 确保能点中
-
-  // 4. 绑定 MouseDown 事件 (核心修复点)
-  // 修改控制点事件处理
-  controlPointsElements.on("mousedown", function (event: MouseEvent, d: any) {
-    event.stopPropagation();
-    event.preventDefault();
-
-    dragState.isResizing = true;
-    dragState.resizeType = d.cursor;
-    dragState.startX = event.clientX;
-    dragState.startY = event.clientY;
-
-    // 使用当前的实际尺寸，而不是 props 的尺寸
-    const svgElement = document.getElementsByClassName(ID)[0] as HTMLElement;
-    if (svgElement) {
-      dragState.startWidth = newWidth; // 使用当前 newWidth
-      dragState.startHeight = newHeight; // 使用当前 newHeight
-    } else {
-      dragState.startWidth = Number(props.width) || 200;
-      dragState.startHeight = Number(props.height) || 200;
-    }
-
-    document.addEventListener("mousemove", handleGlobalMouseMove);
-    document.addEventListener("mouseup", handleGlobalMouseUp);
-  });
-};
-
-// 监听属性变化，重绘图形
+// --- 监听器优化 ---
+// 主要属性变化时重新初始化
 watch(
   () => [
     props.shape,
@@ -415,7 +482,6 @@ watch(
     props.color,
     props.data,
     props.text,
-    props.boxshow,
     props.textSize,
     props.textWeight,
     props.strokeColor,
@@ -423,6 +489,26 @@ watch(
   ],
   () => {
     init();
+  }
+);
+
+// 单独监听图片源变化
+watch(
+  () => props.image,
+  (newImage, oldImage) => {
+    if (newImage !== oldImage && props.shape === "Image") {
+      // 图片源改变时清除缓存并重新加载
+      cachedImageElement = null;
+      init();
+    }
+  }
+);
+
+// 单独监听选择框显示状态
+watch(
+  () => props.boxshow,
+  () => {
+    updateSelectionVisibility();
   }
 );
 
@@ -448,8 +534,10 @@ onUnmounted(() => {
   currentSvg = null;
   selectionGroup = null;
   currentShape = null;
+  cachedImageElement = null;
 });
 </script>
+
 <style scoped>
 .shape-container {
   display: flex;

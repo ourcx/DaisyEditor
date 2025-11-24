@@ -25,6 +25,7 @@ export interface ShapesProps {
   scaleY?: number;
   strokeColor?: string;
   strokeWidth?: number;
+  image?: string;
 }
 type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie";
 export interface Margin{
