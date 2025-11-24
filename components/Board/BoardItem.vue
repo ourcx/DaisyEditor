@@ -171,8 +171,8 @@ const updateSelectionBox = (shape: any) => {
   const padding = 8;
   const selectionX = bbox.x - padding;
   const selectionY = bbox.y - padding;
-  const selectionWidth = bbox.width + padding;
-  const selectionHeight = bbox.height + padding;
+  const selectionWidth = bbox.width + padding * 2;
+  const selectionHeight = bbox.height + padding * 2;
 
   selectionGroup.selectAll("*").remove();
 
