@@ -20,8 +20,8 @@
           :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id" @update:size="handleSizeUpdate"
           :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" :color="page.background" :shape="page.type"
           :strokeColor="page.borderColor" :strokeWidth="page.borderWidth" :image="page.image || ''" :text="page.text"
-          :textSize="page.textSize" :textWeight="page.textWeight" 
-          :filter="page.filter" />
+          :textSize="page.textSize" :textWeight="page.textWeight" :filter="page.filter"
+          @resize-start="handleResizeStart($event, page)" />
 
         <!-- 浮动菜单触发按钮 -->
         <Button icon="pi pi-equals" severity="secondary" variant="text" raised rounded aria-label="Bookmark"
@@ -145,7 +145,7 @@
             <div class="filter-controls z-bar relative">
               <label class="block text-xs font-medium mb-2 text-gray-700 z-bar">滤镜效果</label>
               <Select v-model="filter" :options="filters" optionLabel="name" optionValue="code" placeholder="选择滤镜"
-                class="w-full" @update:modelValue="handleFilterChange" :index="10000" />   
+                class="w-full" @update:modelValue="handleFilterChange" :index="10000" />
             </div>
           </div>
           <!-- 文本设置 -->
@@ -315,7 +315,7 @@ const pages = ref<WhithBoardProps[]>([
   { rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
   { rect: { x: 800, y: 800, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 5, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
   { rect: { x: 1000, y: 200, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 6, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 500, y: 400, width: 200, height: 200 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World' },
+  { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36, },
   { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8 },
 ]);
 const WHITEBOARDPAGES = "whiteboard-pages"
@@ -790,7 +790,7 @@ const triggerFileInput = () => {
 const handleImageUpload = (event: Event) => {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
-  
+
   if (file && currentPageId.value) {
     // 检查文件类型
     if (!file.type.startsWith('image/')) {
@@ -806,7 +806,7 @@ const handleImageUpload = (event: Event) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const imageDataUrl = e.target?.result as string;
-      
+
       // 更新页面数据
       pages.value = pages.value.map(page => {
         if (page.id === currentPageId.value) {
@@ -821,11 +821,11 @@ const handleImageUpload = (event: Event) => {
 
       // 保存更改
       saveAndNotify('图片', '图片已上传');
-      
+
       // 重置文件输入
       if (target) target.value = '';
     };
-    
+
     reader.onerror = () => {
       toast.add({
         severity: 'error',
@@ -834,7 +834,7 @@ const handleImageUpload = (event: Event) => {
         life: 3000
       });
     };
-    
+
     reader.readAsDataURL(file);
   }
 };
@@ -891,7 +891,7 @@ const handleFilterChange = () => {
       }
       return page;
     });
-    
+
     saveAndNotify('滤镜', `已应用${getFilterName(filter.value)}滤镜`);
   }
 };
@@ -1104,6 +1104,135 @@ const handleSizeUpdate = (newScale: { width: number; height: number; scaleX: num
   // 保存到数据库
   storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
   addHistory()
+};
+
+// --- 拖拽状态管理 (父组件) ---
+const isResizing = ref(false);
+const resizeState = ref({
+  startX: 0,
+  startY: 0,
+  startWidth: 0,
+  startHeight: 0,
+  startLeft: 0,
+  startTop: 0,
+  direction: '', // 'nw-resize', 'se-resize' 等
+  activePageId: null as number | null
+});
+
+// 处理子组件传来的开始缩放事件
+const handleResizeStart = (payload: { event: MouseEvent; direction: string; id: number }, page: any) => {
+  // 阻止冒泡，避免触发画布移动等其他逻辑
+  // payload.event.stopPropagation(); // 根据需要开启
+
+  isResizing.value = true;
+  resizeState.value = {
+    startX: payload.event.clientX,
+    startY: payload.event.clientY,
+    startWidth: page.rect.width,
+    startHeight: page.rect.height,
+    startLeft: page.rect.x,
+    startTop: page.rect.y,
+    direction: payload.direction,
+    activePageId: page.id
+  };
+  document.body.style.cursor = getCursorStyle(payload.direction);
+};
+
+const getCursorStyle = (dir: string) => {
+  switch (dir) {
+    case 'nw-resize': case 'se-resize': return 'nwse-resize';
+    case 'ne-resize': case 'sw-resize': return 'nesw-resize';
+    case 'n-resize': case 's-resize': return 'ns-resize';
+    case 'e-resize': case 'w-resize': return 'ew-resize';
+    default: return 'default';
+  }
+}
+
+const handleMouseMove = (event: MouseEvent) => {
+  if (!isResizing.value || !resizeState.value.activePageId) return;
+
+  // 如果你有画布缩放 (transformRef.scale)，这里记得除以缩放比例
+  // const scale = transformRef.value.scale || 1; 
+  const scale = 1; // 暂时假设为 1，如果有缩放功能请替换上面那行
+
+  const dx = (event.clientX - resizeState.value.startX) / scale;
+  const dy = (event.clientY - resizeState.value.startY) / scale;
+
+  const page = pages.value.find(p => p.id === resizeState.value.activePageId);
+  if (!page) return;
+
+  const { startWidth, startHeight, startLeft, startTop, direction } = resizeState.value;
+  const MIN_SIZE = 20; // 最小限制
+
+  let newWidth, newHeight;
+
+  switch (direction) {
+    // --- 简单方向：只改宽高，不改位置 (右、下、右下) ---
+    case 'e-resize': // 右
+      page.rect.width = Math.max(MIN_SIZE, startWidth + dx);
+      break;
+
+    case 's-resize': // 下
+      page.rect.height = Math.max(MIN_SIZE, startHeight + dy);
+      break;
+
+    case 'se-resize': // 右下
+      page.rect.width = Math.max(MIN_SIZE, startWidth + dx);
+      page.rect.height = Math.max(MIN_SIZE, startHeight + dy);
+      break;
+
+    // --- 复杂方向：改宽高的同时，必须反向补偿位置 (左、上) ---
+    // 逻辑：新的位置 = 原位置 + (原宽 - 新宽)
+    // 这样只有当宽度真的发生变化时，位置才会变，不会出现卡在最小宽度位置乱飘的情况
+
+    case 'w-resize': // 左
+      newWidth = Math.max(MIN_SIZE, startWidth - dx);
+      page.rect.width = newWidth;
+      page.rect.x = startLeft + (startWidth - newWidth);
+      break;
+
+    case 'n-resize': // 上
+      newHeight = Math.max(MIN_SIZE, startHeight - dy);
+      page.rect.height = newHeight;
+      page.rect.y = startTop + (startHeight - newHeight);
+      break;
+
+    // --- 组合方向 (右上、左上、左下) ---
+
+    case 'ne-resize': // 右上 (宽变大，高变大且Y上移)
+      page.rect.width = Math.max(MIN_SIZE, startWidth + dx); // 宽同 e-resize
+
+      newHeight = Math.max(MIN_SIZE, startHeight - dy);
+      page.rect.height = newHeight;
+      page.rect.y = startTop + (startHeight - newHeight); // Y同 n-resize
+      break;
+
+    case 'nw-resize': // 左上 (最复杂：XYWH都变)
+      newWidth = Math.max(MIN_SIZE, startWidth - dx);
+      page.rect.width = newWidth;
+      page.rect.x = startLeft + (startWidth - newWidth); // X同 w-resize
+
+      newHeight = Math.max(MIN_SIZE, startHeight - dy);
+      page.rect.height = newHeight;
+      page.rect.y = startTop + (startHeight - newHeight); // Y同 n-resize
+      break;
+
+    case 'sw-resize': // 左下 (宽变大且X左移，高变大)
+      newWidth = Math.max(MIN_SIZE, startWidth - dx);
+      page.rect.width = newWidth;
+      page.rect.x = startLeft + (startWidth - newWidth); // X同 w-resize
+
+      page.rect.height = Math.max(MIN_SIZE, startHeight + dy); // 高同 s-resize
+      break;
+  }
+};
+
+const handleMouseUp = () => {
+  if (isResizing.value) {
+    isResizing.value = false;
+    resizeState.value.activePageId = null;
+    // 这里可以保存历史记录 (Undo/Redo)
+  }
 };
 
 // 事件处理函数
@@ -1528,6 +1657,20 @@ const initializeEvents = () => {
     }
   ])
 
+  // 处理子组件传来的开始缩放事件
+  eventManager.addEventListeners([
+    {
+      element: window,
+      type: 'mousemove',
+      handler: handleMouseMove
+    },
+    {
+      element: window,
+      type: 'mouseup',
+      handler: handleMouseUp
+    }
+  ])
+
 
 };
 
@@ -1824,6 +1967,9 @@ onMounted(() => {
 onUnmounted(() => {
   eventManager.cleanupAll();
 });
+
+
+
 </script>
 
 <style scoped>
@@ -2053,6 +2199,7 @@ button:disabled {
 .page-item:hover .floating-trigger {
   opacity: 1 !important;
 }
+
 /* 图片预览样式 */
 .image-preview .preview-container {
   min-height: 80px;
