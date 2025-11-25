@@ -1,4 +1,3 @@
-
 <template>
   <div ref="shapeContainer" class="shape-container"></div>
 </template>
@@ -101,8 +100,8 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
 const createFilterDefinitions = () => {
   if (!currentSvg) return;
 
-  const defs = currentSvg.select("defs").node() 
-    ? currentSvg.select("defs") 
+  const defs = currentSvg.select("defs").node()
+    ? currentSvg.select("defs")
     : currentSvg.append("defs");
 
   // 移除旧的滤镜定义
@@ -169,13 +168,13 @@ const renderImage = async (): Promise<any> => {
   try {
     // 清除之前的图片
     currentSvg.selectAll("image").remove();
-    
+
     // 创建滤镜定义
     createFilterDefinitions();
-    
+
     // 使用缓存的图片或加载新图片
     await loadImage(props.image);
-    
+
     // 创建图片元素
     const imageElement = currentSvg
       .append("image")
@@ -193,23 +192,11 @@ const renderImage = async (): Promise<any> => {
       imageElement.attr("filter", filterUrl);
     }
 
-    // 添加悬停效果
-    // imageElement
-    //   .style("cursor", "pointer")
-    //   .on("mouseover", function() {
-    //     //@ts-ignore
-    //     select(this).transition().duration(200).attr("opacity", 0.8);
-    //   })
-    //   .on("mouseout", function() {
-    //     //@ts-ignore
-    //     select(this).transition().duration(200).attr("opacity", 1);
-    //   });
-
     cachedImageElement = imageElement;
     return imageElement;
   } catch (error) {
     console.error("Failed to load image:", props.image, error);
-    
+
     // 加载失败时显示占位符
     const placeholder = currentSvg
       .append("rect")
@@ -218,7 +205,7 @@ const renderImage = async (): Promise<any> => {
       .attr("fill", "#f0f0f0")
       .attr("stroke", "#ccc")
       .attr("stroke-width", 1);
-      
+
     currentSvg
       .append("text")
       .attr("x", props.width / 2)
@@ -227,7 +214,7 @@ const renderImage = async (): Promise<any> => {
       .attr("dominant-baseline", "middle")
       .attr("fill", "#999")
       .text("图片加载失败");
-      
+
     return placeholder;
   }
 };
@@ -235,9 +222,9 @@ const renderImage = async (): Promise<any> => {
 // --- 更新图片滤镜 ---
 const updateImageFilter = (filterType: filter) => {
   if (!cachedImageElement || props.shape !== "Image") return;
-  
+
   const filterUrl = getFilterUrl(filterType);
-  
+
   if (filterUrl) {
     cachedImageElement.attr("filter", filterUrl);
   } else {
@@ -260,12 +247,12 @@ const createSelectionGroup = () => {
 
   // 创建选择框阴影滤镜
   const fillColor = props.color || "#bcecd4";
-  const defs = currentSvg.select("defs").node() 
-    ? currentSvg.select("defs") 
+  const defs = currentSvg.select("defs").node()
+    ? currentSvg.select("defs")
     : currentSvg.append("defs");
-    
+
   defs.select(`#colored-shadow-${props.id}`).remove();
-  
+
   const shadowFilter = defs
     .append("filter")
     .attr("id", `colored-shadow-${props.id}`)
@@ -450,6 +437,13 @@ const handleGlobalMouseMove = (event: MouseEvent) => {
       svgElement.style.height = `${newHeight}px`;
     }
 
+    // 对于 Text 元素，我们需要动态更新字体大小
+    if (props.shape === "Text" && currentShape) {
+      const baseFontSize = props.textSize;
+      const scaledFontSize = baseFontSize * Math.min(scaleX, scaleY);
+      currentShape.style("font-size", `${Math.max(8, scaledFontSize)}px`);
+    }
+
     animationFrameId = null;
   });
 };
@@ -492,6 +486,7 @@ const init = async () => {
     .attr("viewBox", `0 0 ${props.width} ${props.height}`)
     .attr("preserveAspectRatio", "none")
     .style("overflow", "visible");
+
 
   const fillColor = props.color || "#bcecd4";
   const centerX = props.width / 2;
@@ -543,17 +538,28 @@ const init = async () => {
         .attr("stroke-width", props.strokeWidth);
       break;
     case "Text":
+      // 计算基于缩放比例的字体大小
+      const baseFontSize = props.textSize;
+      const scaledFontSize = baseFontSize * Math.min(scaleX, scaleY);
+      
       currentShape = currentSvg
         .append("text")
         .attr("x", centerX)
         .attr("y", centerY)
+        .attr('width', props.width)
+        .attr('height', props.height)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
-        .attr("fill", props.strokeColor)
-        .style("font-size", `${props.textSize}px`)
+        .attr("fill", props.color)
+        .style("font-size", `${Math.max(8, scaledFontSize)}px`) // 最小字体大小8px
         .style("font-weight", props.textWeight)
         .style("font-family", "system-ui, sans-serif")
-        .text(props.text || "Text");
+        .style("text-rendering", "geometricPrecision") // 改善文本渲染质量
+        .style("shape-rendering", "crispEdges") // 改善边缘清晰度
+        .text(props.text || "Text")
+        .attr("stroke", props.strokeColor)
+        .attr("stroke-width", props.strokeWidth)
+        .attr("stroke-linejoin", "round");
       break;
     case "Curve": {
       const curveData = [
@@ -652,6 +658,7 @@ onMounted(() => {
     cancelAnimationFrame(animationFrameId);
   }
 });
+// 应该拿到元素的实际宽高重新传值给父组件
 
 onUnmounted(() => {
   // 清理动画帧
@@ -723,3 +730,5 @@ onUnmounted(() => {
   border-color: #1890ff;
 }
 </style>
+
+

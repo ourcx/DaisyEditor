@@ -19,7 +19,8 @@
         <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width" :cy="page.rect.height"
           :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id" @update:size="handleSizeUpdate"
           :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" :color="page.background" :shape="page.type"
-          :strokeColor="page.borderColor" :strokeWidth="page.borderWidth" :image="page.image || ''"
+          :strokeColor="page.borderColor" :strokeWidth="page.borderWidth" :image="page.image || ''" :text="page.text"
+          :textSize="page.textSize" :textWeight="page.textWeight" 
           :filter="page.filter" />
 
         <!-- 浮动菜单触发按钮 -->
