@@ -6,7 +6,8 @@
 import { ref, onMounted, watch, nextTick, onUnmounted } from "vue";
 import { select } from "d3-selection";
 import { curveBasis, line } from "d3-shape";
-import type { filter, ShapesProps } from "~/types/components/type";
+import type { BIUS, filter, ShapesProps } from "~/types/components/type";
+import { Style } from '../../.nuxt/components';
 
 definePageMeta({
   layout: false,
@@ -37,6 +38,7 @@ const props = withDefaults(defineProps<ShapesProps>(), {
   strokeWidth: 2,
   image: "",
   filter: "none",
+  BIUSArr: () => []
 });
 
 const ID = `${props.id}-svg`;
@@ -46,6 +48,15 @@ let selectionGroup: any = null;
 let currentShape: any = null;
 const imageCache = new Map();
 let cachedImageElement: any = null;
+//渲染BIUSArr
+
+
+const biusMap: Record<BIUS, () => void> = {
+  Bold: () => currentShape.style("font-weight", Number(props.textWeight) * 2),
+  Italic: () => currentShape.style("font-style", "italic"),
+  Underline: () => currentShape.style("text-decoration", "underline"),
+  Strikethrough: () => currentShape.style("text-decoration", "line-through")
+};
 
 // --- 基础工具函数：加载图片 ---
 const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -68,7 +79,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
 const createFilterDefinitions = () => {
   if (!currentSvg) return;
   const defs = currentSvg.select("defs").node() ? currentSvg.select("defs") : currentSvg.append("defs");
-  
+
   // 移除旧滤镜防止堆积
   defs.selectAll(`.filter-${props.id}`).remove();
 
@@ -99,7 +110,7 @@ const renderImage = async (): Promise<any> => {
     currentSvg.selectAll("image").remove();
     createFilterDefinitions();
     await loadImage(props.image);
-    
+
     const imageElement = currentSvg.append("image")
       .attr("xlink:href", props.image)
       .attr("width", props.width)   // 紧贴容器宽
@@ -111,7 +122,7 @@ const renderImage = async (): Promise<any> => {
 
     const filterUrl = getFilterUrl(props.filter);
     if (filterUrl) imageElement.attr("filter", filterUrl);
-    
+
     cachedImageElement = imageElement;
     return imageElement;
   } catch (error) {
@@ -278,7 +289,19 @@ const init = async () => {
         .style("font-weight", props.textWeight)
         .text(props.text || "Text")
         .attr("stroke", props.strokeColor).attr("stroke-width", props.strokeWidth)
-        .attr("vector-effect", "non-scaling-stroke");
+        .attr("vector-effect", "non-scaling-stroke")
+
+      // 清除默认样式
+      currentShape.style("font-weight", Number(props.textWeight));
+      currentShape.style("font-style", "normal");
+      currentShape.style("text-decoration", "none");
+
+      // 应用激活样式
+      for (const item of props.BIUSArr as BIUS[]) {
+        if (biusMap[item]) {
+          biusMap[item]();
+        }
+      }
       break;
     case "Curve":
       const curveData = [{ x: 0, y: h }, { x: w * 0.5, y: 0 }, { x: w, y: h }];
@@ -317,7 +340,8 @@ watch(
     props.strokeColor,
     props.strokeWidth,
     props.scaleX,
-    props.scaleY
+    props.scaleY,
+    props.BIUSArr
   ],
   () => {
     init();

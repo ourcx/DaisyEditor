@@ -22,6 +22,7 @@ export interface WhithBoardItemProps {
   textWeight?: string;
   image?: string;
   filter?: filter
+  BIUSArr?: string[]
 }
 
 export type AreaPoint = {

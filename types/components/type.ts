@@ -26,7 +26,8 @@ export interface ShapesProps {
   strokeColor?: string;
   strokeWidth?: number;
   image?: string;
-  filter?: filter
+  filter?: filter;
+  BIUSArr?:string[]
 }
 export type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie" | "Image"
 

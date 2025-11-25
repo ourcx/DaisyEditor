@@ -8,20 +8,21 @@
     <div class="grid-bg" :style="gridStyle"></div>
     <div ref="canvasRef" class="canvas" :style="canvasStyle">
       <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" :id="`${page.id}`"
-        class="absolute rounded-lg cursor-pointer select-none  duration-200 page-item" :style="{
+        class="absolute rounded-lg cursor-pointer select-none  duration-200 page-item overflow-visible" :style="{
           top: page.rect.y + 'px',
           left: page.rect.x + 'px',
           pointerEvents: 'auto',
           zIndex: 10,
           width: page.rect.width + 'px',
           height: page.rect.height + 'px',
+          padding: 10
         }" @click="handlePageClick($event, page)" draggable="true">
         <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width" :cy="page.rect.height"
           :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id" @update:size="handleSizeUpdate"
           :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" :color="page.background" :shape="page.type"
           :strokeColor="page.borderColor" :strokeWidth="page.borderWidth" :image="page.image || ''" :text="page.text"
           :textSize="page.textSize" :textWeight="page.textWeight" :filter="page.filter"
-          @resize-start="handleResizeStart($event, page)" />
+          @resize-start="handleResizeStart($event, page)" :BIUSArr="page.BIUSArr"/>
 
         <!-- 浮动菜单触发按钮 -->
         <Button icon="pi pi-equals" severity="secondary" variant="text" raised rounded aria-label="Bookmark"
@@ -172,6 +173,26 @@
                 <Dropdown v-model="textWeight" :options="fontWeightOptions" optionLabel="label" optionValue="value"
                   class="w-full" />
               </div>
+
+              <div class="card flex flex-wrap justify-center gap-4">
+                <div class="flex items-center gap-2">
+                  <Checkbox v-model="BIUS" inputId="ingredient1" name="pizza" value="Bold" />
+                  <label for="ingredient1">  加粗 </label>
+                </div>
+                <div class="flex items-center gap-2">
+                  <Checkbox v-model="BIUS" inputId="ingredient2" name="pizza" value="Italic" />
+                  <label for="ingredient2"> 斜体 </label>
+                </div>
+                <div class="flex items-center gap-2">
+                  <Checkbox v-model="BIUS" inputId="ingredient3" name="pizza" value="Underline" />
+                  <label for="ingredient3"> 下划线 </label>
+                </div>
+                <div class="flex items-center gap-2">
+                  <Checkbox v-model="BIUS" inputId="ingredient4" name="pizza" value="Strikethrough" />
+                  <label for="ingredient4"> 删除线 </label>
+                </div>
+              </div>
+
             </div>
 
             <div class="flex gap-2 mt-3">
@@ -305,6 +326,9 @@ const filters = ref<selectFilter[]>([
   { name: '反色', code: 'invert' },
   { name: '无色', code: 'none' },
 ])
+//记录文字的形式
+const BIUS = ref()
+const BIUSArr = ref([])
 const fileInputRef = ref<HTMLInputElement | null>(null);
 // 状态管理
 const transformRef = ref({ x: 0, y: 0, scale: 1 });
@@ -315,7 +339,7 @@ const pages = ref<WhithBoardProps[]>([
   { rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
   { rect: { x: 800, y: 800, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 5, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
   { rect: { x: 1000, y: 200, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 6, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36, },
+  { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36,BIUSArr:[] },
   { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8 },
 ]);
 const WHITEBOARDPAGES = "whiteboard-pages"
@@ -676,7 +700,7 @@ const applyBorderChange = () => {
 };
 
 // 应用文本更改
-const applyTextChange = () => {
+const applyTextChange = () => {  
   if (currentPageId.value) {
     pages.value = pages.value.map(page => {
       if (page.id === currentPageId.value) {
@@ -684,7 +708,8 @@ const applyTextChange = () => {
           ...page,
           text: textContent.value,
           textSize: textSize.value,
-          textWeight: textWeight.value
+          textWeight: textWeight.value,
+          BIUSArr: Object.values(BIUS.value)
         };
       }
       return page;
@@ -692,6 +717,7 @@ const applyTextChange = () => {
 
     saveAndNotify('文本', '文本设置已更新');
     currentSubMenu.value = null;
+    BIUS.value = {}
   }
 };
 
