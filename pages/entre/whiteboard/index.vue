@@ -108,6 +108,45 @@
             </div>
           </div>
 
+
+          <!-- 图片设置 -->
+          <div v-else-if="currentSubMenu === 'image'" class="sub-menu-section z-2">
+            <div class="flex items-center justify-between mb-3 relative">
+              <span class="text-sm font-medium">图片设置</span>
+              <Button icon="pi pi-times" text rounded @click="currentSubMenu = null" />
+            </div>
+
+            <!-- 当前图片预览 -->
+            <div v-if="currentPageImage" class="image-preview mb-4">
+              <div class="preview-container border rounded p-2 bg-gray-50">
+                <img :src="currentPageImage" :style="{ filter: getFilterStyle(currentPageFilter) }"
+                  class="max-w-full h-20 object-contain mx-auto" alt="当前图片" />
+              </div>
+            </div>
+
+            <div class="image-controls flex flex-col gap-3 mb-4">
+              <!-- 上传图片按钮 -->
+              <div class="upload-section">
+                <label class="block text-xs font-medium mb-2 text-gray-700">上传新图片</label>
+                <input type="file" ref="fileInputRef" accept="image/*" @change="handleImageUpload" class="hidden" />
+                <Button label="选择图片" icon="pi pi-upload" size="small" @click="triggerFileInput" class="w-full" />
+              </div>
+
+              <!-- 操作按钮 -->
+              <div class="flex gap-2 justify-between">
+                <Button label="取消" severity="secondary" size="small" @click="currentSubMenu = null" class="flex-1" />
+                <Button v-if="currentPageImage" label="删除图片" severity="danger" size="small" @click="deleteImage"
+                  class="flex-1" />
+              </div>
+            </div>
+
+            <!-- 更改滤镜 -->
+            <div class="filter-controls z-bar relative">
+              <label class="block text-xs font-medium mb-2 text-gray-700 z-bar">滤镜效果</label>
+              <Select v-model="filter" :options="filters" optionLabel="name" optionValue="code" placeholder="选择滤镜"
+                class="w-full" @update:modelValue="handleFilterChange" :index="10000" />   
+            </div>
+          </div>
           <!-- 文本设置 -->
           <div v-else-if="currentSubMenu === 'text'" class="sub-menu-section">
             <div class="flex items-center justify-between mb-3">
@@ -247,15 +286,25 @@ import { useHistoryStore } from '~/store/HistoryStore';
 import { useToast } from 'primevue/usetoast';
 import BoardMeun from '~/components/Board/BoardMeun.vue';
 import type { menuData, Shape } from '~/types/components/type';
-
+import type { filter as Filter } from '~/types/components/type';
 const historyStore = useHistoryStore();
 const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
-
+type selectFilter = {
+  name: string,
+  code: Filter
+}
 // DOM 引用
 const containerRef = ref<HTMLElement | null>(null);
 const canvasRef = ref<HTMLElement | null>(null);
 const targetIframe = ref<HTMLIFrameElement | null>(null);
-
+const filter = ref();
+const filters = ref<selectFilter[]>([
+  { name: '模糊', code: 'blur' },
+  { name: '灰度', code: 'grayscale' },
+  { name: '反色', code: 'invert' },
+  { name: '无色', code: 'none' },
+])
+const fileInputRef = ref<HTMLInputElement | null>(null);
 // 状态管理
 const transformRef = ref({ x: 0, y: 0, scale: 1 });
 const pages = ref<WhithBoardProps[]>([
@@ -715,11 +764,136 @@ const sendToBack = () => {
 };
 
 
-const imageSetting = () => {
-  //图片设置滤镜
+const currentPageImage = computed(() => {
+  if (currentPageId.value) {
+    const page = pages.value.find(p => p.id === currentPageId.value);
+    return page?.image || '';
+  }
+  return '';
+});
 
-}
+const currentPageFilter = computed(() => {
+  if (currentPageId.value) {
+    const page = pages.value.find(p => p.id === currentPageId.value);
+    return page?.filter || 'none';
+  }
+  return 'none';
+});
 
+// 触发文件选择
+const triggerFileInput = () => {
+  fileInputRef.value?.click();
+};
+
+// 处理图片上传
+const handleImageUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  
+  if (file && currentPageId.value) {
+    // 检查文件类型
+    if (!file.type.startsWith('image/')) {
+      toast.add({
+        severity: 'error',
+        summary: '错误',
+        detail: '请选择图片文件',
+        life: 3000
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageDataUrl = e.target?.result as string;
+      
+      // 更新页面数据
+      pages.value = pages.value.map(page => {
+        if (page.id === currentPageId.value) {
+          return {
+            ...page,
+            image: imageDataUrl,
+            type: 'Image' // 确保类型设置为图片
+          };
+        }
+        return page;
+      });
+
+      // 保存更改
+      saveAndNotify('图片', '图片已上传');
+      
+      // 重置文件输入
+      if (target) target.value = '';
+    };
+    
+    reader.onerror = () => {
+      toast.add({
+        severity: 'error',
+        summary: '错误',
+        detail: '图片读取失败',
+        life: 3000
+      });
+    };
+    
+    reader.readAsDataURL(file);
+  }
+};
+
+// 修改删除图片函数
+const deleteImage = () => {
+  if (currentPageId.value) {
+    pages.value = pages.value.map(page => {
+      if (page.id === currentPageId.value) {
+        return {
+          ...page,
+          image: '',
+          filter: 'none'
+        };
+      }
+      return page;
+    });
+
+    saveAndNotify('图片', '图片已删除');
+    filter.value = 'none';
+    currentSubMenu.value = null; // 关闭子菜单
+  }
+};
+
+// 获取滤镜样式
+const getFilterStyle = (filterType: string) => {
+  switch (filterType) {
+    case 'blur':
+      return 'blur(2px)';
+    case 'grayscale':
+      return 'grayscale(100%)';
+    case 'invert':
+      return 'invert(100%)';
+    default:
+      return 'none';
+  }
+};
+
+// 获取滤镜名称
+const getFilterName = (filterCode: string) => {
+  const filterObj = filters.value.find(f => f.code === filterCode);
+  return filterObj ? filterObj.name : '无';
+};
+
+// 修改滤镜处理函数
+const handleFilterChange = () => {
+  if (currentPageId.value) {
+    pages.value = pages.value.map(page => {
+      if (page.id === currentPageId.value) {
+        return {
+          ...page,
+          filter: filter.value as Filter
+        };
+      }
+      return page;
+    });
+    
+    saveAndNotify('滤镜', `已应用${getFilterName(filter.value)}滤镜`);
+  }
+};
 // 修改 toggleFloatingMenu 函数，添加状态初始化
 const toggleFloatingMenu = (event: MouseEvent, page: WhithBoardProps) => {
   event.stopPropagation();
@@ -879,7 +1053,7 @@ const floatingMenuItems = ref([
     icon: 'pi pi-cog',
     label: '图片设置',
     command: () => {
-      imageSetting();
+      currentSubMenu.value = 'image';
     }
   }
 ]);
@@ -1877,5 +2051,30 @@ button:disabled {
 /* 页面悬停时显示浮动按钮 */
 .page-item:hover .floating-trigger {
   opacity: 1 !important;
+}
+/* 图片预览样式 */
+.image-preview .preview-container {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-section {
+  border: 2px dashed #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
+  transition: border-color 0.3s ease;
+}
+
+.upload-section:hover {
+  border-color: #3b82f6;
+}
+
+.filter-preview {
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #3b82f6;
 }
 </style>
