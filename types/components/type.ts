@@ -27,7 +27,8 @@ export interface ShapesProps {
   strokeWidth?: number;
   image?: string;
   filter?: filter;
-  BIUSArr?:string[]
+  BIUSArr?:string[];
+  rotate?: number;
 }
 export type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie" | "Image"
 
@@ -64,3 +65,4 @@ export type menuData = {
   action: string;
   params?: unknown;
 };
+export type BIUS = 'Bold' | 'Italic' | 'Underline' | 'Strikethrough';

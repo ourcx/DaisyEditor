@@ -15,6 +15,9 @@
           zIndex: 10,
           width: page.rect.width + 'px',
           height: page.rect.height + 'px',
+          //旋转
+          transform: `rotate(${page.rotate}deg)`,
+          transformOrigin: 'center',
           padding: 10
         }" @click="handlePageClick($event, page)" draggable="true">
         <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width" :cy="page.rect.height"
@@ -22,11 +25,13 @@
           :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" :color="page.background" :shape="page.type"
           :strokeColor="page.borderColor" :strokeWidth="page.borderWidth" :image="page.image || ''" :text="page.text"
           :textSize="page.textSize" :textWeight="page.textWeight" :filter="page.filter"
-          @resize-start="handleResizeStart($event, page)" :BIUSArr="page.BIUSArr"/>
+          @resize-start="handleResizeStart($event, page)" :BIUSArr="page.BIUSArr" />
 
         <!-- 浮动菜单触发按钮 -->
+        <!-- 修改浮动按钮的事件绑定 -->
         <Button icon="pi pi-equals" severity="secondary" variant="text" raised rounded aria-label="Bookmark"
-          class="floating-trigger" @click.stop="toggleFloatingMenu($event, page)" :pt="{
+          class="floating-trigger" @click.stop="toggleFloatingMenu($event, page)"
+          @mousedown.stop="handleRotateStart($event, page)" :pt="{
             root: {
               style: {
                 position: 'absolute',
@@ -43,8 +48,7 @@
                 transition: 'opacity 0.2s ease',
               },
             },
-          }">
-        </Button>
+          }" />
       </div>
     </div>
 
@@ -177,7 +181,7 @@
               <div class="card flex flex-wrap justify-center gap-4">
                 <div class="flex items-center gap-2">
                   <Checkbox v-model="BIUS" inputId="ingredient1" name="pizza" value="Bold" />
-                  <label for="ingredient1">  加粗 </label>
+                  <label for="ingredient1"> 加粗 </label>
                 </div>
                 <div class="flex items-center gap-2">
                   <Checkbox v-model="BIUS" inputId="ingredient2" name="pizza" value="Italic" />
@@ -339,8 +343,8 @@ const pages = ref<WhithBoardProps[]>([
   { rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
   { rect: { x: 800, y: 800, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 5, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
   { rect: { x: 1000, y: 200, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 6, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36,BIUSArr:[] },
-  { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8 },
+  { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36, BIUSArr: [] },
+  { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8, rotate: 45 },
 ]);
 const WHITEBOARDPAGES = "whiteboard-pages"
 const isGuide = ref(true);
@@ -471,6 +475,17 @@ const dragState = reactive({
   dragElement: null as HTMLElement | null  // 新增：用于存储正在拖拽的元素
 });
 
+//旋转的
+const rotateState = reactive({
+  isRotating: false,
+  startX: 0,
+  startY: 0,
+  startAngle: 0,
+  dragPageId: null as number | null,
+  currentAngle: 0,
+  centerX: 0,
+  centerY: 0
+})
 // 交互状态
 const interactionState = reactive({
   isDragging: false,
@@ -700,7 +715,7 @@ const applyBorderChange = () => {
 };
 
 // 应用文本更改
-const applyTextChange = () => {  
+const applyTextChange = () => {
   if (currentPageId.value) {
     pages.value = pages.value.map(page => {
       if (page.id === currentPageId.value) {
@@ -722,16 +737,18 @@ const applyTextChange = () => {
 };
 
 // 保存并通知的通用方法
-const saveAndNotify = (summary: string, detail: string) => {
+const saveAndNotify = (summary: string = '', detail: string = '') => {
   storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
   addHistory();
 
-  toast.add({
-    severity: 'success',
-    summary,
-    detail,
-    life: 2000
-  });
+  if (detail) {
+    toast.add({
+      severity: 'success',
+      summary,
+      detail,
+      life: 2000
+    });
+  }
 };
 
 // 复制页面
@@ -1489,6 +1506,7 @@ const eventHandlers = {
     event.stopPropagation();
 
     if (!event.target) return;
+    if (dragState.isDragging) return;
 
     // 拿到id
     dragState.isDragging = true;
@@ -1541,7 +1559,7 @@ const eventHandlers = {
       return page;
     });
     drawer.value?.clear();
-
+    saveAndNotify('updatePosition', '')
   },
 
   onMouseup(event: MouseEvent) {
@@ -1567,9 +1585,93 @@ const eventHandlers = {
     getAllDomPoint();
     // 允许鼠标框选
     eventHandlers.handleSelectionEnd()
-  }
-
+  },
 };
+
+// 旋转开始处理
+const handleRotateStart = (e: MouseEvent, page: any) => {
+  e.stopPropagation()
+  e.preventDefault()
+  //更改鼠标值
+  document.body.style.cursor = 'alias'
+
+  const target = e.currentTarget as Element;
+  const pageElement = target instanceof HTMLElement ? target.closest('.page-item') as HTMLElement : null;
+  if (!pageElement) return
+
+  rotateState.isRotating = true
+  rotateState.dragPageId = page.id
+  rotateState.startAngle = page.rotate || 0
+
+  // 计算元素中心点（相对于视口）
+  const rect = pageElement.getBoundingClientRect()
+  rotateState.centerX = rect.left + rect.width / 2
+  rotateState.centerY = rect.top + rect.height / 2
+
+  // 记录初始角度
+  rotateState.startX = e.clientX
+  rotateState.startY = e.clientY
+
+  // 添加全局事件监听
+  document.addEventListener('mousemove', handleRotateMove)
+  document.addEventListener('mouseup', handleRotateEnd)
+
+  // 阻止文本选择
+  document.body.style.userSelect = 'none'
+}
+
+// 旋转移动处理
+const handleRotateMove = (e: MouseEvent) => {
+  if (!rotateState.isRotating || rotateState.dragPageId === null) return
+
+  e.preventDefault()
+
+  // 计算角度变化
+  const startAngle = Math.atan2(
+    rotateState.startY - rotateState.centerY,
+    rotateState.startX - rotateState.centerX
+  )
+
+  const currentAngle = Math.atan2(
+    e.clientY - rotateState.centerY,
+    e.clientX - rotateState.centerX
+  )
+
+  // 计算角度差（弧度转角度）
+  let angleDiff = (currentAngle - startAngle) * (180 / Math.PI)
+
+  // 平滑角度变化，避免跳跃
+  if (angleDiff > 180) angleDiff -= 360
+  if (angleDiff < -180) angleDiff += 360
+
+  // 更新角度
+  rotateState.currentAngle = rotateState.startAngle + angleDiff
+
+  // 更新页面数据
+  const pageIndex = pages.value.findIndex(p => p.id === rotateState.dragPageId)
+  if (pageIndex !== -1) {
+    pages.value[pageIndex]!.rotate = Math.round(rotateState.currentAngle)
+  }
+}
+
+// 旋转结束处理
+const handleRotateEnd = () => {
+  if (!rotateState.isRotating) return
+  document.body.style.cursor = 'default'
+
+  rotateState.isRotating = false
+  rotateState.dragPageId = null
+
+  // 移除全局事件监听
+  document.removeEventListener('mousemove', handleRotateMove)
+  document.removeEventListener('mouseup', handleRotateEnd)
+
+  // 恢复文本选择
+  document.body.style.userSelect = ''
+
+  // 保存状态
+  saveAndNotify('rotate', '')
+}
 
 // 初始化事件管理器
 const eventManager = useEventManager();
@@ -1577,6 +1679,7 @@ const eventManager = useEventManager();
 // 初始化所有事件
 const initializeEvents = () => {
   if (!containerRef.value) return;
+  if (!canvasRef.value) return
 
   // 画布拖拽事件
   eventManager.addEventListeners([
@@ -1694,6 +1797,20 @@ const initializeEvents = () => {
       element: window,
       type: 'mouseup',
       handler: handleMouseUp
+    }
+  ])
+
+  // 旋转
+  eventManager.addEventListeners([
+    {
+      element: document,
+      type: 'mousemove',
+      handler: handleRotateMove
+    },
+    {
+      element: document,
+      type: 'mouseup',
+      handler: handleRotateEnd
     }
   ])
 

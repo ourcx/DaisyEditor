@@ -21,8 +21,10 @@ export interface WhithBoardItemProps {
   textSize?: number;
   textWeight?: string;
   image?: string;
-  filter?: filter
-  BIUSArr?: string[]
+  filter?: filter;
+  BIUSArr?: string[];
+  //旋转
+  rotate?: number;
 }
 
 export type AreaPoint = {

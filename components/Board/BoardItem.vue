@@ -38,7 +38,7 @@ const props = withDefaults(defineProps<ShapesProps>(), {
   strokeWidth: 2,
   image: "",
   filter: "none",
-  BIUSArr: () => []
+  BIUSArr: () => [],
 });
 
 const ID = `${props.id}-svg`;
