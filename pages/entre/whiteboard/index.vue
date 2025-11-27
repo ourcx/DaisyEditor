@@ -4,8 +4,7 @@
     :x="doubleClickMenuState.position.x" :y="doubleClickMenuState.position.y" @action="ClickBoardMeun" />
   <Toast position="top-center" />
   <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu"
-    @mousedown="handleContainerMouseDown" @mousemove="handleContainerMouseMove"
-    @mouseup="handleContainerMouseUp">
+    @mousedown="handleContainerMouseDown" @mousemove="handleContainerMouseMove" @mouseup="handleContainerMouseUp">
     <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" class="z-dialog" />
     <div class="grid-bg" :style="gridStyle"></div>
     <div ref="canvasRef" class="canvas" :style="canvasStyle">
@@ -21,7 +20,7 @@
           transform: `rotate(${page.rotate}deg)`,
           transformOrigin: 'center',
           padding: 10
-        }" @click="handlePageClick($event, page)">
+        }" @click.stop="handlePageClick($event, page)">
         <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width" :cy="page.rect.height"
           :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id" @update:size="handleSizeUpdate"
           :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" :color="page.background" :shape="page.type"
@@ -297,6 +296,8 @@ import BoardMeun from '~/components/Board/BoardMeun.vue';
 import type { menuData, Shape } from '~/types/components/type';
 import type { filter as Filter } from '~/types/components/type';
 import BottomControlBar from '~/components/Board/BottomControlBar/BottomControlBar.vue';
+import { defineAsyncComponent } from 'vue';
+import { onUnmounted } from 'vue';
 //交互管理
 const interactionMode = ref<'select' | 'drag' | 'canvasDrag' | 'rotate' | 'resize'>('select');
 const historyStore = useHistoryStore();
@@ -446,19 +447,16 @@ const fontWeightOptions = [
 const showContextMenu = (e: MouseEvent) => {
   contextMenuRef.value?.show(e)
 }
-//拖动偏移量
-const mousedownOffset = reactive({
-  x: 0,
-  y: 0,
-})
 const dragState = reactive({
   isDragging: false,
   dragPageId: null as number | null,
+  dragPageIds: [] as number[], // 新增：支持多个页面拖拽
   startX: 0,
   startY: 0,
   startPageX: 0,
   startPageY: 0,
-  dragElement: null as HTMLElement | null,  // 新增：用于存储正在拖拽的元素
+  startPages: [] as { id: number, x: number, y: number }[], // 新增：多个页面的初始位置
+  dragElement: null as HTMLElement | null,
 });
 
 //旋转的
@@ -479,6 +477,7 @@ const interactionState = reactive({
   startY: 0,
   startTranslateX: 0,
   startTranslateY: 0,
+  justFinishedSelecting: false,
   isSelecting: false,
   areaPoint: {
     startX: 0,
@@ -602,17 +601,18 @@ const handleRedo = () => {
 
 
 const handleGlobalClick = (event: MouseEvent) => {
-  if (!(event.target as HTMLElement).closest('.global-floating-menu')) {
+  const target = event.target as HTMLElement;
+
+  // 如果点击的不是浮动菜单或其内容，关闭菜单
+  if (!target.closest('.global-floating-menu') &&
+    !target.closest('.floating-trigger')) {
     closeFloatingMenu();
   }
+
+  // 移除空白区域清除选择的逻辑，因为已经在 handleContainerMouseDown 中处理
+  // 空白区域点击清除选择的功能由 handleContainerMouseDown 负责
 };
 
-//浮动菜单
-const handleActionClick = (item: any) => {
-  if (item.command) {
-    item.command();
-  }
-};
 //菜单颜色
 const handleFloatingAction = (item: any) => {
   if (item.requireText && currentPageType.value !== 'Text') {
@@ -710,7 +710,7 @@ const applyTextChange = () => {
           text: textContent.value,
           textSize: textSize.value,
           textWeight: textWeight.value,
-          BIUSArr: Object.values(BIUS.value)
+          BIUSArr: Array.isArray(BIUS.value) ? BIUS.value : [] // 确保是数组
         };
       }
       return page;
@@ -718,7 +718,7 @@ const applyTextChange = () => {
 
     saveAndNotify('文本', '文本设置已更新');
     currentSubMenu.value = null;
-    BIUS.value = {}
+    BIUS.value = []; // 重置为数组
   }
 };
 
@@ -909,19 +909,20 @@ const getFilterName = (filterCode: string) => {
 };
 
 // 修改滤镜处理函数
-const handleFilterChange = () => {
+// 修改 handleFilterChange 函数
+const handleFilterChange = (newFilter: Filter) => {
   if (currentPageId.value) {
     pages.value = pages.value.map(page => {
       if (page.id === currentPageId.value) {
         return {
           ...page,
-          filter: filter.value as Filter
+          filter: newFilter
         };
       }
       return page;
     });
 
-    saveAndNotify('滤镜', `已应用${getFilterName(filter.value)}滤镜`);
+    saveAndNotify('滤镜', `已应用${getFilterName(newFilter)}滤镜`);
   }
 };
 // 修改 toggleFloatingMenu 函数，添加状态初始化
@@ -996,15 +997,30 @@ const handlePageClick = (event: MouseEvent, page: WhithBoardProps) => {
   clickPageItem(event);
 };
 
-const clickPageItem = (e: MouseEvent) => {
+const clickPageItem = (e: MouseEvent, page?: WhithBoardProps) => {
+  console.log('clickPageItem', page);
   e.stopPropagation();
   const target = e.currentTarget as HTMLElement;
   const id = target.getAttribute('data-id') || '';
-  if (highRectList.value.has(id)) {
-    highRectList.value.delete(id);
+  console.log('clickPageItem', id, target);
+
+  // 如果有Ctrl键或Cmd键，支持多选
+  if (e.ctrlKey || e.metaKey) {
+    const newHighlights = new Set(highRectList.value);
+    if (newHighlights.has(id)) {
+      newHighlights.delete(id);
+    } else {
+      newHighlights.add(id);
+    }
+    highRectList.value = newHighlights;
+    console.log(highRectList.value,"clicPageItem")
   } else {
-    highRectList.value.clear();
-    highRectList.value.add(id);
+    // 没有Ctrl键，单选
+    const newHighlights = new Set([id]);
+    if (JSON.stringify([...newHighlights]) !== JSON.stringify([...highRectList.value])) {
+      highRectList.value = newHighlights;
+      console.log(highRectList.value,"clicPageItem")
+    }
   }
 };
 
@@ -1365,6 +1381,7 @@ const eventHandlers = {
           storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
           toast.add({ severity: 'success', summary: '保存', detail: '白板内容已保存', life: 2000 });
         }
+        break;
     }
 
     // 复制粘贴删除
@@ -1445,9 +1462,21 @@ const handleContainerMouseDown = (event: MouseEvent) => {
   // 如果点击在页面元素上，开始元素拖拽
   if (pageElement && !target.closest('.floating-trigger')) {
     startElementDrag(event, pageElement);
+    console.log('startElementDrag');
   } else {
-    // 否则开始框选
-    startSelection(event);
+    // 只有在没有选中任何元素时才开始框选
+    // 如果已经有选中元素，点击空白区域应该清除选择
+    if (highRectList.value.size === 0) {
+      console.log('clearSelection',highRectList.value);
+      startSelection(event);
+    } else {
+      console.log('clearSelection111111111111');
+      // 如果有选中元素，点击空白区域立即清除选择
+      highRectList.value.clear();
+      //阻止后面的事件
+      event.stopPropagation();
+      console.log('clearSelection111111111111',highRectList.value);
+    }
   }
 };
 
@@ -1467,6 +1496,7 @@ const handleContainerMouseMove = (event: MouseEvent) => {
 };
 
 const handleContainerMouseUp = (event: MouseEvent) => {
+  console.log('handleContainerMouseUp',interactionMode.value);
   switch (interactionMode.value) {
     case 'drag':
       handleElementDragEnd(event);
@@ -1485,69 +1515,125 @@ const handleContainerMouseUp = (event: MouseEvent) => {
 const startElementDrag = (event: MouseEvent, pageElement: HTMLElement) => {
   interactionMode.value = 'drag';
 
-  // 拿到id
-  dragState.dragPageId = pageElement.id ? parseInt(pageElement.id, 10) : null;
-  dragState.dragElement = pageElement;
-
-  // 从pages拿到数据
-  const page = pages.value.find((page) => page.id === dragState.dragPageId);
-  if (!page) {
+  // 获取点击的页面ID
+  const clickedPageId = pageElement.id ? parseInt(pageElement.id, 10) : null;
+  if (!clickedPageId) {
     interactionMode.value = 'select';
     return;
+  }
+
+  const elementId = `id-key-${clickedPageId}`;
+
+  // 如果当前点击的元素没有被高亮，先清除其他高亮并高亮当前元素
+  if (!highRectList.value.has(elementId)) {
+    highRectList.value.clear();
+    highRectList.value.add(elementId);
+    console.log(highRectList.value,'startElementDrag')
+  }
+
+  // 判断是否多选拖拽
+  if (highRectList.value.size > 1) {
+    // 多选拖拽：拖拽所有高亮元素
+    dragState.dragPageIds = Array.from(highRectList.value)
+      .map(id => {
+        const match = id.match(/id-key-(\d+)/);
+        return match ? parseInt(match[1]!, 10) : null;
+      })
+      .filter(id => id !== null) as number[];
+
+    // 记录所有选中页面的初始位置
+    dragState.startPages = dragState.dragPageIds.map(id => {
+      const page = pages.value.find(p => p.id === id);
+      return page ? { id, x: page.rect.x, y: page.rect.y } : null;
+    }).filter(Boolean) as { id: number, x: number, y: number }[];
+
+  } else {
+    // 单选拖拽
+    dragState.dragPageId = clickedPageId;
+    dragState.dragPageIds = [clickedPageId];
+
+    const page = pages.value.find((page) => page.id === clickedPageId);
+    if (!page) {
+      interactionMode.value = 'select';
+      return;
+    }
+
+    dragState.startPages = [{ id: clickedPageId, x: page.rect.x, y: page.rect.y }];
   }
 
   // 记录初始状态
   dragState.startX = event.clientX;
   dragState.startY = event.clientY;
-  dragState.startPageX = page.rect.x;
-  dragState.startPageY = page.rect.y;
+  dragState.dragElement = pageElement;
 
   drawer.value?.clear();
 };
 
 const handleElementDragMove = (event: MouseEvent) => {
-  if (dragState.dragPageId === null) return;
+  if (dragState.dragPageIds.length === 0) return;
 
   // 计算位移（考虑画布缩放）
   const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
   const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
 
-  // 实时更新元素位置
-  if (dragState.dragElement) {
-    const newX = dragState.startPageX + deltaX;
-    const newY = dragState.startPageY + deltaY;
+  // 实时更新所有选中元素的位置
+  dragState.dragPageIds.forEach((pageId, index) => {
+    const startPage = dragState.startPages[index];
+    if (!startPage) return;
 
-    dragState.dragElement.style.left = `${newX}px`;
-    dragState.dragElement.style.top = `${newY}px`;
+    const newX = startPage.x + deltaX;
+    const newY = startPage.y + deltaY;
+
+    // 更新DOM元素位置（如果元素存在）
+    const element = document.getElementById(`${pageId}`);
+    if (element) {
+      element.style.left = `${newX}px`;
+      element.style.top = `${newY}px`;
+    }
+  });
+
+  // 强制更新高亮状态 - 使用新的Set来触发响应式更新
+  const newHighlights = new Set(dragState.dragPageIds.map(id => `id-key-${id}`));
+  if (JSON.stringify([...newHighlights]) !== JSON.stringify([...highRectList.value])) {
+    highRectList.value = newHighlights;
+    console.log(highRectList.value,"handleELement")
   }
 };
 
 const handleElementDragEnd = (event: MouseEvent) => {
-  if (dragState.dragPageId === null) return;
+  if (dragState.dragPageIds.length === 0) return;
 
   // 计算最终位移（考虑画布缩放）
   const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
   const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
 
-  // 最终更新页面数据
+  // 最终更新所有页面数据
   pages.value = pages.value.map(page => {
-    if (page.id === dragState.dragPageId) {
+    const startPageIndex = dragState.startPages.findIndex(sp => sp.id === page.id);
+    if (startPageIndex !== -1) {
+      const startPage = dragState.startPages[startPageIndex];
       return {
         ...page,
         rect: {
           ...page.rect,
-          x: dragState.startPageX + deltaX,
-          y: dragState.startPageY + deltaY
+          x: startPage!.x + deltaX,
+          y: startPage!.y + deltaY
         }
       };
     }
     return page;
   });
 
+  // 确保高亮状态正确 - 使用新的Set强制更新
+  highRectList.value = new Set(dragState.dragPageIds.map(id => `id-key-${id}`));
+  console.log(highRectList.value,"handdddddddddddd")
+
   drawer.value?.clear();
 
   // 重置拖拽状态
   dragState.dragPageId = null;
+  dragState.dragPageIds = [];
+  dragState.startPages = [];
   dragState.dragElement = null;
 
   // 保存数据
@@ -1556,17 +1642,51 @@ const handleElementDragEnd = (event: MouseEvent) => {
   getAllDomPoint();
 };
 
+
+
+const handleSelectionEnd = (event: MouseEvent) => {
+  interactionState.isSelecting = false;
+  drawer.value?.clear();
+  
+  // 如果框选区域很小，可能是点击而不是框选
+  const { startX, startY, endX, endY } = interactionState.areaPoint;
+  const selectionWidth = Math.abs(endX - startX);
+  const selectionHeight = Math.abs(endY - startY);
+  
+  // 如果是有效的框选（区域足够大），更新高亮状态
+  // if (selectionWidth > 5 && selectionHeight > 5) {
+  //   const newHighlights = new Set<string>();
+  //   rectInfoList.value.forEach((item) => {
+  //     if (computedIsSelected(interactionState.areaPoint, item)) {
+  //       newHighlights.add(item.id);
+  //     }
+  //   });
+  //   highRectList.value = newHighlights;
+  //   console.log(highRectList.value,"sssssssssssssssss")
+    
+  //   // 标记刚刚结束框选
+  //   interactionState.justFinishedSelecting = true;
+  //   // 短暂延迟后重置标志
+  //   setTimeout(() => {
+  //     interactionState.justFinishedSelecting = false;
+  //   }, 100);
+  // } else {
+  //   // 如果是很小的点击区域，不改变选择状态
+  //   // 保持原有选择，不执行任何操作
+  // }
+};
 // 框选相关函数
 const startSelection = (event: MouseEvent) => {
   if (interactionMode.value !== 'select') return;
 
   doubleClickMenuState.visible = false;
-  highRectList.value.clear();
 
   interactionState.isSelecting = true;
   const { clientX, clientY } = event;
   interactionState.areaPoint.startX = clientX;
   interactionState.areaPoint.startY = clientY;
+  interactionState.areaPoint.endX = clientX; // 初始化结束点
+  interactionState.areaPoint.endY = clientY;
 };
 
 const handleSelectionMove = (event: MouseEvent) => {
@@ -1602,19 +1722,19 @@ const handleSelectionMove = (event: MouseEvent) => {
   }
 };
 
-const handleSelectionEnd = (event: MouseEvent) => {
-  interactionState.isSelecting = false;
-  drawer.value?.clear();
-};
-
-
-
-
 
 // 旋转开始处理
 const handleRotateStart = (e: MouseEvent, page: any) => {
   e.stopPropagation()
   e.preventDefault()
+
+  // 确保旋转的元素被高亮
+  const elementId = `id-key-${page.id}`;
+  if (!highRectList.value.has(elementId)) {
+    highRectList.value.clear();
+    highRectList.value.add(elementId);
+  }
+
   //更改鼠标值
   document.body.style.cursor = 'alias'
 
@@ -1634,10 +1754,6 @@ const handleRotateStart = (e: MouseEvent, page: any) => {
   // 记录初始角度
   rotateState.startX = e.clientX
   rotateState.startY = e.clientY
-
-  // 添加全局事件监听
-  document.addEventListener('mousemove', handleRotateMove)
-  document.addEventListener('mouseup', handleRotateEnd)
 
   // 阻止文本选择
   document.body.style.userSelect = 'none'
@@ -1678,22 +1794,19 @@ const handleRotateMove = (e: MouseEvent) => {
 }
 
 // 旋转结束处理
+// 修改 handleRotateEnd 函数
 const handleRotateEnd = () => {
-  if (!rotateState.isRotating) return
-  document.body.style.cursor = 'default'
+  if (!rotateState.isRotating) return;
 
-  rotateState.isRotating = false
-  rotateState.dragPageId = null
+  rotateState.isRotating = false;
+  rotateState.dragPageId = null;
 
-  // 移除全局事件监听
-  document.removeEventListener('mousemove', handleRotateMove)
-  document.removeEventListener('mouseup', handleRotateEnd)
-
-  // 恢复文本选择
-  document.body.style.userSelect = ''
+  // 恢复样式
+  document.body.style.cursor = 'default';
+  document.body.style.userSelect = '';
 
   // 保存状态
-  saveAndNotify('rotate', '')
+  saveAndNotify('旋转', '旋转角度已更新');
 }
 
 // 初始化事件管理器

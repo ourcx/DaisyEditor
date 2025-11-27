@@ -207,6 +207,7 @@ const updateSelectionBox = (shape: any) => {
 };
 
 const updateSelectionVisibility = () => {
+  console.log("updateSelectionVisibility",props.boxshow);
   if (selectionGroup) {
     selectionGroup.style("display", props.boxshow ? "block" : "none");
     if (props.boxshow && currentShape) {
