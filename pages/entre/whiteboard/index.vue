@@ -3,7 +3,9 @@
   <BoardMeun class="z-dialog" id="boardMenu" :visible="doubleClickMenuState.visible"
     :x="doubleClickMenuState.position.x" :y="doubleClickMenuState.position.y" @action="ClickBoardMeun" />
   <Toast position="top-center" />
-  <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu">
+  <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu"
+    @mousedown="handleContainerMouseDown" @mousemove="handleContainerMouseMove"
+    @mouseup="handleContainerMouseUp">
     <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" class="z-dialog" />
     <div class="grid-bg" :style="gridStyle"></div>
     <div ref="canvasRef" class="canvas" :style="canvasStyle">
@@ -19,7 +21,7 @@
           transform: `rotate(${page.rotate}deg)`,
           transformOrigin: 'center',
           padding: 10
-        }" @click="handlePageClick($event, page)" draggable="true">
+        }" @click="handlePageClick($event, page)">
         <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width" :cy="page.rect.height"
           :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id" @update:size="handleSizeUpdate"
           :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" :color="page.background" :shape="page.type"
@@ -219,27 +221,8 @@
 
     <canvas id="canvas" class="canvas"></canvas>
 
-    <div class="fixed bottom-4 right-4 text-white flex items-center justify-center gap-2 z-bar">
-      <!-- 历史记录撤回  -->
-      <Button icon="pi pi-chevron-left" class="p-2 bg-black/70 hover:bg-black/80 rounded text-white" @click="handleUndo"
-        :disabled="!canUndo" />
-      <!-- 历史记录前进  -->
-      <Button icon="pi pi-chevron-right" class="p-2 bg-black/70 hover:bg-black/80 rounded text-white"
-        @click="handleRedo" :disabled="!canRedo" />
-
-      <div class="bg-black/70 rounded text-xs flex items-center justify-center gap-1">
-        <!-- 放大  -->
-        <Button icon="pi pi-search-plus" class="hover:bg-black/80 rounded text-white bg-transparent" @click="zoomIn" />
-        <div class="pl-1 pr-1">
-          Scale: {{ transformRef.scale.toFixed(2) }} | X:
-          {{ transformRef.x.toFixed(0) }} | Y:
-          {{ transformRef.y.toFixed(0) }}
-        </div>
-        <Button icon="pi pi-search-minus" class="hover:bg-black/80 rounded text-white bg-transparent"
-          @click="zoomOut" />
-      </div>
-      <Button @click="toggleGuides" class="">辅助线开关</Button>
-    </div>
+    <BottomControlBar :transform="transformRef" :can-undo="canUndo" :can-redo="canRedo" @zoom-in="zoomIn"
+      @zoom-out="zoomOut" @undo="handleUndo" @redo="handleRedo" @toggle-guides="toggleGuides" />
 
     <BoardLeft class="z-dialog" id="boardLeft" />
     <!-- 小地图区域 -->
@@ -313,7 +296,9 @@ import { useToast } from 'primevue/usetoast';
 import BoardMeun from '~/components/Board/BoardMeun.vue';
 import type { menuData, Shape } from '~/types/components/type';
 import type { filter as Filter } from '~/types/components/type';
-
+import BottomControlBar from '~/components/Board/BottomControlBar/BottomControlBar.vue';
+//交互管理
+const interactionMode = ref<'select' | 'drag' | 'canvasDrag' | 'rotate' | 'resize'>('select');
 const historyStore = useHistoryStore();
 const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
 type selectFilter = {
@@ -474,7 +459,6 @@ const dragState = reactive({
   startPageX: 0,
   startPageY: 0,
   dragElement: null as HTMLElement | null,  // 新增：用于存储正在拖拽的元素
-  cloneElement: null as HTMLElement | null
 });
 
 //旋转的
@@ -1285,7 +1269,9 @@ const eventHandlers = {
   // 画布拖拽
   handleCanvasDragStart(e: MouseEvent) {
     if (e.button !== 0) return;
-    if (!keyboardState.isSpacePressed) return
+    if (!keyboardState.isSpacePressed) return;
+
+    interactionMode.value = 'canvasDrag';
     interactionState.isDragging = true;
     interactionState.startX = e.clientX;
     interactionState.startY = e.clientY;
@@ -1296,6 +1282,7 @@ const eventHandlers = {
       containerRef.value.style.cursor = 'grabbing';
     }
   },
+
 
   handleCanvasDrag(e: MouseEvent) {
     if (!interactionState.isDragging) return;
@@ -1422,59 +1409,6 @@ const eventHandlers = {
         break;
     }
   },
-
-  // 框选事件
-  handleSelectionStart(e: MouseEvent) {
-    //关闭双击菜单
-    // doubleClickMenuState.visible = false;
-    if (interactionState.isDragging) return;
-
-    highRectList.value.clear();
-    interactionState.isSelecting = true;
-
-    const { clientX, clientY } = e;
-    interactionState.areaPoint.startX = clientX;
-    interactionState.areaPoint.startY = clientY;
-  },
-
-  handleSelectionMove(e: MouseEvent) {
-    if (interactionState.isDragging || !interactionState.isSelecting) return;
-
-    const { clientX, clientY } = e;
-    interactionState.areaPoint.endX = clientX;
-    interactionState.areaPoint.endY = clientY;
-
-    // 绘制选择框
-    drawer.value?.clear();
-    const { startX, startY, endX, endY } = interactionState.areaPoint;
-    const rect = new Rectutils(
-      {
-        x: startX,
-        y: startY,
-        width: endX - startX,
-        height: endY - startY,
-        isFill: true,
-        color: 'rgba(50, 205, 121, 0.3)'
-      },
-      'rect'
-    );
-    drawer.value?.add(rect);
-
-    // 计算选中元素
-    if (interactionState.isSelecting) {
-      rectInfoList.value.forEach((item) => {
-        if (computedIsSelected(interactionState.areaPoint, item)) {
-          highRectList.value.add(item.id);
-        }
-      });
-    }
-  },
-
-  handleSelectionEnd() {
-    interactionState.isSelecting = false;
-    drawer.value?.clear();
-  },
-
   // 小地图事件
   handleMinimapClick(e: MouseEvent) {
     if (!targetIframe.value || !targetIframe.value.contentDocument) return;
@@ -1494,163 +1428,188 @@ const eventHandlers = {
     }
   },
   //双击屏幕弹出插入图形窗口
-
   handleCanvasDoubleClick(e: MouseEvent) {
     if (interactionState.isDragging) return;
     if (interactionState.isSelecting) return;
     doubleClickMenuState.visible = !doubleClickMenuState.visible;
     doubleClickMenuState.position = { x: e.clientX, y: e.clientY };
   },
-  onMouseDown(event: MouseEvent) {
-    // 开始的时候暂停鼠标框选
-    interactionState.isSelecting = true;
-    event.stopPropagation();
-
-    if (!event.target) return;
-    if (dragState.isDragging) return;
+};
 
 
+const handleContainerMouseDown = (event: MouseEvent) => {
+  // 检查是否点击在页面元素上
+  const target = event.target as HTMLElement;
+  const pageElement = target.closest('.page-item') as HTMLElement;
 
-    const target = event.target as HTMLElement;
-    const pageElement = target.closest('.page-item') as HTMLElement;
-    if (!pageElement) return;
-
-    // 拿到id
-    dragState.isDragging = true;
-    dragState.dragPageId = pageElement.id ? parseInt(pageElement.id, 10) : null;
-
-    // 保存正在拖拽的元素引用
-    dragState.dragElement = pageElement;
-    if (dragState.dragElement) {
-      dragState.dragElement.style.opacity = '0';
-    }
-
-    // 创建克隆元素用于拖拽预览
-    dragState.cloneElement = pageElement.cloneNode(true) as HTMLElement;
-
-    //转化为画布坐标系
-    const canvasX = pageElement.offsetLeft + transformRef.value.x;
-    const canvasY = pageElement.offsetTop + transformRef.value.y;
-
-    dragState.cloneElement.style.cssText = `
-      position: fixed;
-      left: ${canvasX}px;
-      top: ${canvasY}px;
-      width: ${pageElement.offsetWidth/ transformRef.value.scale}px;
-      height: ${pageElement.offsetHeight/ transformRef.value.scale}px;
-      opacity: 1;
-      pointer-events: none;
-      z-index: 1000;
-      transition: none;
-      rotate: 0 !important;
-    `;
-
-    // 添加拖拽样式类
-    dragState.cloneElement.classList.add('dragging-clone');
-
-    // 将克隆元素添加到body
-    document.body.appendChild(dragState.cloneElement);
-
-    // 从pages拿到数据
-    const page = pages.value.find((page) => page.id === dragState.dragPageId);
-    if (!page) return;
-
-    // 记录初始状态
-    dragState.startX = event.clientX;
-    dragState.startY = event.clientY;
-    dragState.startPageX = page.rect.x;
-    dragState.startPageY = page.rect.y;
-
-    drawer.value?.clear();
-  },
-
-  onMouseMove(event: MouseEvent) {
-    if (!dragState.isDragging || dragState.dragPageId === null) return;
-
-    event.stopPropagation();
-
-    // 计算位移（考虑画布缩放）
-    const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
-    const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
-
-    // 更新克隆元素位置
-    if (dragState.cloneElement) {
-      const newX = dragState.startPageX + deltaX;
-      const newY = dragState.startPageY + deltaY;
-
-      dragState.cloneElement.style.left = `${newX}px`;
-      dragState.cloneElement.style.top = `${newY}px`;
-    }
-
-    // 实时更新页面数据 - 使用不可变更新
-    // pages.value = pages.value.map(page => {
-    //   if (page.id === dragState.dragPageId) {
-    //     return {
-    //       ...page,
-    //       rect: {
-    //         ...page.rect,
-    //         x: dragState.startPageX + deltaX,
-    //         y: dragState.startPageY + deltaY
-    //       }
-    //     };
-    //   }
-    //   return page;
-    // });
-  },
-
-  onMouseUp(event: MouseEvent) {
-    if (!dragState.isDragging) return;
-
-    event.stopPropagation();
-
-    console.log("拖拽结束", event);
-
-    // 移除克隆元素
-    if (dragState.cloneElement) {
-      document.body.removeChild(dragState.cloneElement);
-      dragState.cloneElement = null;
-    }
-    if (dragState.dragElement) {
-      dragState.dragElement.style.opacity = '1';
-    }
-
-    // 计算最终位移（考虑画布缩放）
-    const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
-    const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
-
-    // 最终更新页面数据
-    pages.value = pages.value.map(page => {
-      if (page.id === dragState.dragPageId) {
-        return {
-          ...page,
-          rect: {
-            ...page.rect,
-            x: dragState.startPageX + deltaX,
-            y: dragState.startPageY + deltaY
-          }
-        };
-      }
-      return page;
-    });
-
-    drawer.value?.clear();
-
-    // 重置拖拽状态
-    dragState.isDragging = false;
-    dragState.dragPageId = null;
-    dragState.dragElement = null;
-
-    console.log('拖拽结束，当前页面数据:', pages.value);
-
-    // 保存数据
-    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
-    // 历史记录
-    addHistory();
-    getAllDomPoint();
-    // 允许鼠标框选
-    eventHandlers.handleSelectionEnd();
+  // 如果点击在页面元素上，开始元素拖拽
+  if (pageElement && !target.closest('.floating-trigger')) {
+    startElementDrag(event, pageElement);
+  } else {
+    // 否则开始框选
+    startSelection(event);
   }
 };
+
+const handleContainerMouseMove = (event: MouseEvent) => {
+  switch (interactionMode.value) {
+    case 'drag':
+      handleElementDragMove(event);
+      break;
+    case 'select':
+      handleSelectionMove(event);
+      break;
+    case 'canvasDrag':
+      eventHandlers.handleCanvasDrag(event);
+      break;
+    // 其他模式...
+  }
+};
+
+const handleContainerMouseUp = (event: MouseEvent) => {
+  switch (interactionMode.value) {
+    case 'drag':
+      handleElementDragEnd(event);
+      break;
+    case 'select':
+      handleSelectionEnd(event);
+      break;
+    case 'canvasDrag':
+      eventHandlers.handleCanvasDragEnd();
+      break;
+  }
+  interactionMode.value = 'select'; // 重置为选择模式
+};
+
+// 元素拖拽相关函数
+const startElementDrag = (event: MouseEvent, pageElement: HTMLElement) => {
+  interactionMode.value = 'drag';
+
+  // 拿到id
+  dragState.dragPageId = pageElement.id ? parseInt(pageElement.id, 10) : null;
+  dragState.dragElement = pageElement;
+
+  // 从pages拿到数据
+  const page = pages.value.find((page) => page.id === dragState.dragPageId);
+  if (!page) {
+    interactionMode.value = 'select';
+    return;
+  }
+
+  // 记录初始状态
+  dragState.startX = event.clientX;
+  dragState.startY = event.clientY;
+  dragState.startPageX = page.rect.x;
+  dragState.startPageY = page.rect.y;
+
+  drawer.value?.clear();
+};
+
+const handleElementDragMove = (event: MouseEvent) => {
+  if (dragState.dragPageId === null) return;
+
+  // 计算位移（考虑画布缩放）
+  const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
+  const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
+
+  // 实时更新元素位置
+  if (dragState.dragElement) {
+    const newX = dragState.startPageX + deltaX;
+    const newY = dragState.startPageY + deltaY;
+
+    dragState.dragElement.style.left = `${newX}px`;
+    dragState.dragElement.style.top = `${newY}px`;
+  }
+};
+
+const handleElementDragEnd = (event: MouseEvent) => {
+  if (dragState.dragPageId === null) return;
+
+  // 计算最终位移（考虑画布缩放）
+  const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
+  const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
+
+  // 最终更新页面数据
+  pages.value = pages.value.map(page => {
+    if (page.id === dragState.dragPageId) {
+      return {
+        ...page,
+        rect: {
+          ...page.rect,
+          x: dragState.startPageX + deltaX,
+          y: dragState.startPageY + deltaY
+        }
+      };
+    }
+    return page;
+  });
+
+  drawer.value?.clear();
+
+  // 重置拖拽状态
+  dragState.dragPageId = null;
+  dragState.dragElement = null;
+
+  // 保存数据
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+  addHistory();
+  getAllDomPoint();
+};
+
+// 框选相关函数
+const startSelection = (event: MouseEvent) => {
+  if (interactionMode.value !== 'select') return;
+
+  doubleClickMenuState.visible = false;
+  highRectList.value.clear();
+
+  interactionState.isSelecting = true;
+  const { clientX, clientY } = event;
+  interactionState.areaPoint.startX = clientX;
+  interactionState.areaPoint.startY = clientY;
+};
+
+const handleSelectionMove = (event: MouseEvent) => {
+  if (!interactionState.isSelecting) return;
+
+  const { clientX, clientY } = event;
+  interactionState.areaPoint.endX = clientX;
+  interactionState.areaPoint.endY = clientY;
+
+  // 绘制选择框
+  drawer.value?.clear();
+  const { startX, startY, endX, endY } = interactionState.areaPoint;
+  const rect = new Rectutils(
+    {
+      x: startX,
+      y: startY,
+      width: endX - startX,
+      height: endY - startY,
+      isFill: true,
+      color: 'rgba(50, 205, 121, 0.3)'
+    },
+    'rect'
+  );
+  drawer.value?.add(rect);
+
+  // 计算选中元素
+  if (interactionState.isSelecting) {
+    rectInfoList.value.forEach((item) => {
+      if (computedIsSelected(interactionState.areaPoint, item)) {
+        highRectList.value.add(item.id);
+      }
+    });
+  }
+};
+
+const handleSelectionEnd = (event: MouseEvent) => {
+  interactionState.isSelecting = false;
+  drawer.value?.clear();
+};
+
+
+
+
 
 // 旋转开始处理
 const handleRotateStart = (e: MouseEvent, page: any) => {
@@ -1787,23 +1746,23 @@ const initializeEvents = () => {
   ]);
 
   // 框选事件
-  eventManager.addEventListeners([
-    {
-      element: window,
-      type: 'mousedown',
-      handler: eventHandlers.handleSelectionStart
-    },
-    {
-      element: window,
-      type: 'mousemove',
-      handler: eventHandlers.handleSelectionMove
-    },
-    {
-      element: window,
-      type: 'mouseup',
-      handler: eventHandlers.handleSelectionEnd
-    }
-  ]);
+  // eventManager.addEventListeners([
+  //   {
+  //     element: window,
+  //     type: 'mousedown',
+  //     handler: eventHandlers.handleSelectionStart
+  //   },
+  //   {
+  //     element: window,
+  //     type: 'mousemove',
+  //     handler: eventHandlers.handleSelectionMove
+  //   },
+  //   {
+  //     element: window,
+  //     type: 'mouseup',
+  //     handler: eventHandlers.handleSelectionEnd
+  //   }
+  // ]);
 
   //点击事件
   eventManager.addEventListeners([
@@ -1832,23 +1791,23 @@ const initializeEvents = () => {
   ])
 
   //拖拽事件dragstart监听
-  eventManager.addEventListeners([
-    {
-      element: containerRef.value,
-      type: 'dragstart',
-      handler: eventHandlers.onMouseDown
-    },
-    {
-      element: containerRef.value,
-      type: 'dragend',
-      handler: eventHandlers.onMouseUp
-    },
-    {
-      element: containerRef.value,
-      type: 'dragover',
-      handler: eventHandlers.onMouseMove
-    }
-  ])
+  // eventManager.addEventListeners([
+  //   {
+  //     element: containerRef.value,
+  //     type: 'mousedown',
+  //     handler: eventHandlers.onMouseDown
+  //   },
+  //   {
+  //     element: containerRef.value,
+  //     type: 'mouseup',
+  //     handler: eventHandlers.onMouseUp
+  //   },
+  //   {
+  //     element: containerRef.value,
+  //     type: 'mousemove',
+  //     handler: eventHandlers.onMouseMove
+  //   }
+  // ])
 
   // 处理子组件传来的开始缩放事件
   eventManager.addEventListeners([
