@@ -313,6 +313,7 @@ import { useToast } from 'primevue/usetoast';
 import BoardMeun from '~/components/Board/BoardMeun.vue';
 import type { menuData, Shape } from '~/types/components/type';
 import type { filter as Filter } from '~/types/components/type';
+
 const historyStore = useHistoryStore();
 const ContxtMenu = defineAsyncComponent(() => import('~/components/Contextmenu/index.vue'))
 type selectFilter = {
@@ -472,7 +473,8 @@ const dragState = reactive({
   startY: 0,
   startPageX: 0,
   startPageY: 0,
-  dragElement: null as HTMLElement | null  // 新增：用于存储正在拖拽的元素
+  dragElement: null as HTMLElement | null,  // 新增：用于存储正在拖拽的元素
+  cloneElement: null as HTMLElement | null
 });
 
 //旋转的
@@ -1424,7 +1426,7 @@ const eventHandlers = {
   // 框选事件
   handleSelectionStart(e: MouseEvent) {
     //关闭双击菜单
-    doubleClickMenuState.visible = false;
+    // doubleClickMenuState.visible = false;
     if (interactionState.isDragging) return;
 
     highRectList.value.clear();
@@ -1499,7 +1501,6 @@ const eventHandlers = {
     doubleClickMenuState.visible = !doubleClickMenuState.visible;
     doubleClickMenuState.position = { x: e.clientX, y: e.clientY };
   },
-
   onMouseDown(event: MouseEvent) {
     // 开始的时候暂停鼠标框选
     interactionState.isSelecting = true;
@@ -1508,18 +1509,47 @@ const eventHandlers = {
     if (!event.target) return;
     if (dragState.isDragging) return;
 
+
+
+    const target = event.target as HTMLElement;
+    const pageElement = target.closest('.page-item') as HTMLElement;
+    if (!pageElement) return;
+
     // 拿到id
     dragState.isDragging = true;
-    const target = event.target as HTMLElement;
-    dragState.dragPageId = target.id ? parseInt(target.id, 10) : null;
+    dragState.dragPageId = pageElement.id ? parseInt(pageElement.id, 10) : null;
 
     // 保存正在拖拽的元素引用
-    dragState.dragElement = target;
-
-    // 设置拖拽元素透明度为0
+    dragState.dragElement = pageElement;
     if (dragState.dragElement) {
       dragState.dragElement.style.opacity = '0';
     }
+
+    // 创建克隆元素用于拖拽预览
+    dragState.cloneElement = pageElement.cloneNode(true) as HTMLElement;
+
+    //转化为画布坐标系
+    const canvasX = pageElement.offsetLeft + transformRef.value.x;
+    const canvasY = pageElement.offsetTop + transformRef.value.y;
+
+    dragState.cloneElement.style.cssText = `
+      position: fixed;
+      left: ${canvasX}px;
+      top: ${canvasY}px;
+      width: ${pageElement.offsetWidth/ transformRef.value.scale}px;
+      height: ${pageElement.offsetHeight/ transformRef.value.scale}px;
+      opacity: 1;
+      pointer-events: none;
+      z-index: 1000;
+      transition: none;
+      rotate: 0 !important;
+    `;
+
+    // 添加拖拽样式类
+    dragState.cloneElement.classList.add('dragging-clone');
+
+    // 将克隆元素添加到body
+    document.body.appendChild(dragState.cloneElement);
 
     // 从pages拿到数据
     const page = pages.value.find((page) => page.id === dragState.dragPageId);
@@ -1530,9 +1560,9 @@ const eventHandlers = {
     dragState.startY = event.clientY;
     dragState.startPageX = page.rect.x;
     dragState.startPageY = page.rect.y;
+
     drawer.value?.clear();
   },
-
 
   onMouseMove(event: MouseEvent) {
     if (!dragState.isDragging || dragState.dragPageId === null) return;
@@ -1540,13 +1570,57 @@ const eventHandlers = {
     event.stopPropagation();
 
     // 计算位移（考虑画布缩放）
-    let deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
-    let deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
+    const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
+    const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
 
-    // 更新页面数据 - 使用不可变更新
+    // 更新克隆元素位置
+    if (dragState.cloneElement) {
+      const newX = dragState.startPageX + deltaX;
+      const newY = dragState.startPageY + deltaY;
+
+      dragState.cloneElement.style.left = `${newX}px`;
+      dragState.cloneElement.style.top = `${newY}px`;
+    }
+
+    // 实时更新页面数据 - 使用不可变更新
+    // pages.value = pages.value.map(page => {
+    //   if (page.id === dragState.dragPageId) {
+    //     return {
+    //       ...page,
+    //       rect: {
+    //         ...page.rect,
+    //         x: dragState.startPageX + deltaX,
+    //         y: dragState.startPageY + deltaY
+    //       }
+    //     };
+    //   }
+    //   return page;
+    // });
+  },
+
+  onMouseUp(event: MouseEvent) {
+    if (!dragState.isDragging) return;
+
+    event.stopPropagation();
+
+    console.log("拖拽结束", event);
+
+    // 移除克隆元素
+    if (dragState.cloneElement) {
+      document.body.removeChild(dragState.cloneElement);
+      dragState.cloneElement = null;
+    }
+    if (dragState.dragElement) {
+      dragState.dragElement.style.opacity = '1';
+    }
+
+    // 计算最终位移（考虑画布缩放）
+    const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
+    const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
+
+    // 最终更新页面数据
     pages.value = pages.value.map(page => {
       if (page.id === dragState.dragPageId) {
-
         return {
           ...page,
           rect: {
@@ -1558,23 +1632,13 @@ const eventHandlers = {
       }
       return page;
     });
+
     drawer.value?.clear();
-    saveAndNotify('updatePosition', '')
-  },
-
-  onMouseup(event: MouseEvent) {
-    console.log("onMouseup", event);
-    event.stopPropagation();
-
-    // 恢复拖拽元素的透明度
-    if (dragState.dragElement) {
-      dragState.dragElement.style.opacity = '';
-      dragState.dragElement = null;
-    }
 
     // 重置拖拽状态
     dragState.isDragging = false;
     dragState.dragPageId = null;
+    dragState.dragElement = null;
 
     console.log('拖拽结束，当前页面数据:', pages.value);
 
@@ -1584,8 +1648,8 @@ const eventHandlers = {
     addHistory();
     getAllDomPoint();
     // 允许鼠标框选
-    eventHandlers.handleSelectionEnd()
-  },
+    eventHandlers.handleSelectionEnd();
+  }
 };
 
 // 旋转开始处理
@@ -1777,7 +1841,7 @@ const initializeEvents = () => {
     {
       element: containerRef.value,
       type: 'dragend',
-      handler: eventHandlers.onMouseup
+      handler: eventHandlers.onMouseUp
     },
     {
       element: containerRef.value,
@@ -2068,12 +2132,133 @@ const extractMinimap = () => {
 };
 
 // 浮动菜单的操作
-const ClickBoardMeun = (item: menuData) => {
+const ClickBoardMeun = (item: menuData, x: number, y: number) => {
+  console.log("点击了菜单项:", item, x, y);
+  //拿到鼠标的位置
+  let mode
   switch (item.action) {
-
+    case "Rect":
+      mode = BoardMeunList.addRect(x, y)
+      break
+    case "Circle":
+      mode = BoardMeunList.addCircle(x, y)
+      break
+    case "Line":
+      mode = BoardMeunList.addLine(x, y)
+      break
+    case "Text":
+      mode = BoardMeunList.addText(x, y)
+      break
+    case "Image":
+      mode = BoardMeunList.addImage(x, y)
+      break
   }
+  if (mode) {
+    pages.value.push(mode)
+    //提示和保存
+    saveAndNotify()
+    doubleClickMenuState.visible = false
+  }
+}
+
+
+const BoardMeunList = {
+  //添加矩形
+  addRect(x: any, y: any) {
+    const newElement: WhithBoardProps = {
+      id: Date.now(),
+      type: "Rect",
+      rect: {
+        x: x,
+        y: y,
+        width: 100,
+        height: 100
+      },
+      background: "#ffffff",
+      borderWidth: 1,
+      borderColor: "#000000",
+    }
+    return newElement
+  },
+
+  //添加圆形
+  addCircle(x: any, y: any) {
+    const newElement: WhithBoardProps = {
+      id: Date.now(),
+      type: "circle",
+      rect: {
+        x: x,
+        y: y,
+        width: 100,
+        height: 100
+      },
+      background: "#ffffff",
+      borderWidth: 1,
+      borderColor: "#000000",
+    }
+    return newElement
+  },
+  //添加直线
+  addLine(x: any, y: any) {
+    const newElement: WhithBoardProps = {
+      id: Date.now(),
+      type: "Line",
+      rect: {
+        x: x,
+        y: y,
+        width: 100,
+        height: 100
+      },
+      background: "#ffffff",
+      borderWidth: 1,
+      borderColor: "#000000",
+    }
+    return newElement
+  },
+
+  //添加文本
+  addText(x: any, y: any) {
+    const newElement: WhithBoardProps = {
+      id: Date.now(),
+      type: "Text",
+      rect: {
+        x: x,
+        y: y,
+        width: 100,
+        height: 100
+      },
+      text: "请输入文本",
+      textSize: 16,
+      background: "#ffffff",
+      borderWidth: 1,
+      borderColor: "#000000",
+    }
+    return newElement
+  },
+
+  //添加图片
+  addImage(x: any, y: any) {
+    const newElement: WhithBoardProps = {
+      id: Date.now(),
+      type: "Image",
+      rect: {
+        x: x,
+        y: y,
+        width: 100,
+        height: 100,
+      },
+      image: "https://picsum.photos/200/300",
+      background: "#ffffff",
+      borderWidth: 1,
+      borderColor: "#000000",
+      BIUSArr: [],
+    }
+    return newElement
+  },
+
 
 }
+
 
 
 

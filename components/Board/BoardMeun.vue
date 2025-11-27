@@ -1,20 +1,16 @@
 <template>
     <div class="board-menu board-menu-vertical z-40 w-auto h-auto bg-white shadow-lg rounded p-2 grid gap-2 grid-rows-4 grid-cols-4"
-         v-if="visible"
-         :style="{
-             position: 'fixed',
-             left: x + 'px',
-             top: y + 'px'
-         }">
+        v-if="visible" :style="{
+            position: 'fixed',
+            left: x + 'px',
+            top: y + 'px'
+        }"@click.stop>
         <!-- 标题占据首行全部列 -->
         <div class="text-2xl col-span-4 flex items-center justify-start weight">插入图形</div>
-        
+
         <!-- 菜单项从第二行开始排列 -->
-        <div class="board-menu-item flex items-center justify-center"
-             v-for="item in data"
-             :key="item.name"
-             @click="handleClick(item)"
-             v-tooltip.top="{ value: item.name, autoHide: true }">
+        <div class="board-menu-item flex items-center justify-center" v-for="item in data" :key="item.name"
+            @click="handleClick(item)" v-tooltip.top="{ value: item.name, autoHide: true }">
             <i :class="`${item.icon} pi`"></i>
         </div>
     </div>
@@ -25,7 +21,7 @@ import type { menuData, menuProps } from '~/types/components/type';
 
 
 interface menuEmit {
-    (e: "action", item: menuData): void;
+    (e: "action", item: menuData, x: number, y: number): void;
 }
 
 const emit = defineEmits<menuEmit>();
@@ -39,32 +35,32 @@ const props = withDefaults(defineProps<menuProps>(), {
         {
             name: "矩形",
             icon: "pi-stop", // 使用 stop 图标表示矩形
-            action: "insertRectangle"
+            action: "Rect"
         },
         {
             name: "圆形",
             icon: "pi-circle",
-            action: "insertCircle"
+            action: "Circle"
         },
         {
             name: "三角形",
             icon: "pi-caret-down", // 使用向下箭头表示三角形
-            action: "insertTriangle"
+            action: "Line"
         },
         {
             name: "直线",
             icon: "pi-minus",
-            action: "insertLine"
+            action: "Line"
         },
         {
             name: "文本",
             icon: "pi-file-edit", // 使用文件编辑图标表示文本
-            action: "insertText"
+            action: "Text"
         },
         {
             name: "图片",
             icon: "pi-image",
-            action: "insertImage"
+            action: "Image"
         },
         {
             name: "表格",
@@ -97,7 +93,7 @@ const props = withDefaults(defineProps<menuProps>(), {
 
 const handleClick = (item: menuData) => {
     console.log("点击了菜单项:", item);
-    emit("action", item);
+    emit("action", item, props.x, props.y);
 };
 </script>
 
@@ -109,7 +105,7 @@ const handleClick = (item: menuData) => {
     border-radius: 4px;
 }
 
-.weight{
+.weight {
     font-weight: 600;
 }
 
@@ -121,5 +117,4 @@ const handleClick = (item: menuData) => {
     font-size: 1.5rem;
     color: #495057;
 }
-
 </style>
