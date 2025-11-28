@@ -288,7 +288,7 @@ definePageMeta({
   layout: false,
 });
 import { useRouter } from 'vue-router';
-import { ref, computed, onMounted, nextTick, reactive, type CSSProperties } from 'vue';
+import { ref, computed, onMounted, nextTick, reactive, type CSSProperties, watch } from 'vue';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
 import type { AreaPoint, MenuData, MenuItem, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
@@ -305,7 +305,7 @@ import BottomControlBar from '~/components/Board/BottomControlBar/BottomControlB
 import BoardMeunList from '~/server/BoardMeunList';
 import { defineAsyncComponent } from 'vue';
 import { onUnmounted } from 'vue';
-import { availableShapes,fontWeightOptions } from '~/utils/data';
+import { availableShapes, fontWeightOptions } from '~/utils/data';
 //交互管理
 const interactionMode = ref<'select' | 'drag' | 'canvasDrag' | 'rotate' | 'resize'>('select');
 const historyStore = useHistoryStore();
@@ -349,6 +349,31 @@ const drawer = ref<Drawer>();
 const rectInfoList = ref<Map<string, RectInfo>>(new Map());
 const highRectList = ref<Set<string>>(new Set());
 const contextMenuRef = ref()
+// 吸附效果配置
+const snapConfig = reactive({
+  enabled: true, // 是否启用吸附
+  distance: 10, // 吸附距离（像素）
+  gridSize: 20, // 网格大小
+  guides: {
+    enabled: true, // 是否显示辅助线
+    color: '#32cd79', // 辅助线颜色
+    thickness: 1 // 辅助线粗细
+  }
+});
+
+// 辅助线状态
+const guideLines = reactive({
+  horizontal: [] as number[], // 水平辅助线位置
+  vertical: [] as number[], // 垂直辅助线位置
+  visible: false // 是否显示
+});
+
+// 当前吸附到的位置
+const currentSnapPoints = reactive({
+  x: null as number | null,
+  y: null as number | null
+});
+
 const menuItems: MenuItem[] = [
   {
     key: 'copy',
@@ -409,6 +434,34 @@ const menuItems: MenuItem[] = [
       storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
     },
     key: 'save'
+  },
+  {
+    key: 'snap-settings',
+    icon: 'pi-magnet',
+    label: snapConfig.enabled ? '关闭吸附' : '开启吸附',
+    handler: () => {
+      snapConfig.enabled = !snapConfig.enabled;
+      toast.add({
+        severity: 'info',
+        summary: '吸附功能',
+        detail: snapConfig.enabled ? '吸附已开启' : '吸附已关闭',
+        life: 2000
+      });
+    }
+  },
+  {
+    key: 'guide-settings',
+    icon: 'pi-eye',
+    label: snapConfig.guides.enabled ? '隐藏辅助线' : '显示辅助线',
+    handler: () => {
+      snapConfig.guides.enabled = !snapConfig.guides.enabled;
+      toast.add({
+        severity: 'info',
+        summary: '辅助线',
+        detail: snapConfig.guides.enabled ? '辅助线已显示' : '辅助线已隐藏',
+        life: 2000
+      });
+    }
   }
 ]
 const curPage = ref<string>('');
@@ -470,6 +523,7 @@ const interactionState = reactive({
     endY: 0
   } as AreaPoint
 });
+
 
 // 键盘状态
 const keyboardState = reactive({
@@ -1085,7 +1139,8 @@ const floatingMenuItems = ref([
     command: () => {
       currentSubMenu.value = 'image';
     }
-  }
+  },
+
 ]);
 
 // 缩放功能
@@ -1561,27 +1616,68 @@ const handleElementDragMove = (event: MouseEvent) => {
   const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
   const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
 
+  // 获取主元素（第一个拖拽的元素）
+  const mainPageId = dragState.dragPageIds[0];
+  const startPage = dragState.startPages[0];
+  if (!startPage) return;
+
+  let newX = startPage.x + deltaX;
+  let newY = startPage.y + deltaY;
+
+  // 应用吸附效果
+  if (snapConfig.enabled) {
+    // 从 pages 数据中获取实际的宽度和高度
+    const mainPage = pages.value.find(page => page.id === mainPageId);
+    if (mainPage) {
+      const currentRect = {
+        x: newX,
+        y: newY,
+        width: mainPage.rect.width,
+        height: mainPage.rect.height
+      };
+
+      const snapPoints = calculateSnapPoints(currentRect);
+      const snapResult = checkSnap(newX, newY, snapPoints);
+      
+      newX = snapResult.x;
+      newY = snapResult.y;
+      
+      // 更新辅助线
+      if (snapConfig.guides.enabled) {
+        updateGuideLines(snapResult.horizontalGuide, snapResult.verticalGuide);
+        drawGuideLines();
+      }
+
+      // 更新当前吸附位置（可用于显示吸附提示）
+      currentSnapPoints.x = snapResult.horizontalGuide;
+      currentSnapPoints.y = snapResult.verticalGuide;
+    }
+  }
+
   // 实时更新所有选中元素的位置
   dragState.dragPageIds.forEach((pageId, index) => {
     const startPage = dragState.startPages[index];
     if (!startPage) return;
 
-    const newX = startPage.x + deltaX;
-    const newY = startPage.y + deltaY;
+    // 计算相对位移（对于多选拖拽）
+    const relativeDeltaX = newX - dragState.startPages[0]!.x;
+    const relativeDeltaY = newY - dragState.startPages[0]!.y;
 
-    // 更新DOM元素位置（如果元素存在）
+    const elementX = startPage.x + relativeDeltaX;
+    const elementY = startPage.y + relativeDeltaY;
+
+    // 更新DOM元素位置
     const element = document.getElementById(`${pageId}`);
     if (element) {
-      element.style.left = `${newX}px`;
-      element.style.top = `${newY}px`;
+      element.style.left = `${elementX}px`;
+      element.style.top = `${elementY}px`;
     }
   });
 
-  // 强制更新高亮状态 - 使用新的Set来触发响应式更新
+  // 强制更新高亮状态
   const newHighlights = new Set(dragState.dragPageIds.map(id => `id-key-${id}`));
   if (JSON.stringify([...newHighlights]) !== JSON.stringify([...highRectList.value])) {
     highRectList.value = newHighlights;
-    console.log(highRectList.value, "handleELement")
   }
 };
 
@@ -1591,6 +1687,16 @@ const handleElementDragEnd = (event: MouseEvent) => {
   // 计算最终位移（考虑画布缩放）
   const deltaX = (event.clientX - dragState.startX) / transformRef.value.scale;
   const deltaY = (event.clientY - dragState.startY) / transformRef.value.scale;
+
+  // 清除辅助线
+  guideLines.visible = false;
+  guideLines.horizontal = [];
+  guideLines.vertical = [];
+  if (drawer.value) {
+    drawer.value.clearGuideLines();
+  }
+  currentSnapPoints.x = null;
+  currentSnapPoints.y = null;
 
   // 最终更新所有页面数据
   pages.value = pages.value.map(page => {
@@ -1609,11 +1715,8 @@ const handleElementDragEnd = (event: MouseEvent) => {
     return page;
   });
 
-  // 确保高亮状态正确 - 使用新的Set强制更新
+  // 确保高亮状态正确
   highRectList.value = new Set(dragState.dragPageIds.map(id => `id-key-${id}`));
-  console.log(highRectList.value, "handdddddddddddd")
-
-  drawer.value?.clear();
 
   // 重置拖拽状态
   dragState.dragPageId = null;
@@ -1626,7 +1729,6 @@ const handleElementDragEnd = (event: MouseEvent) => {
   addHistory();
   getAllDomPoint();
 };
-
 
 
 const handleSelectionEnd = (event: MouseEvent) => {
@@ -1887,9 +1989,21 @@ const toggleGuides = () => {
 
 const initCanvas = () => {
   const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+  if (!canvas) {
+    console.error('Canvas element not found');
+    return;
+  }
+  
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  canvas.style.position = 'fixed';
+  canvas.style.top = '0';
+  canvas.style.left = '0';
+  canvas.style.zIndex = '5'; // 确保在正确层级
+  canvas.style.pointerEvents = 'none'; // 不拦截鼠标事件
+  
   drawer.value = new Drawer({ view: canvas });
+  console.log('Canvas initialized:', drawer.value);
 };
 
 const getAllDomPoint = () => {
@@ -2329,6 +2443,152 @@ const resetTextEditState = () => {
 };
 
 
+//吸附判断
+// 计算吸附点
+// 计算吸附点
+const calculateSnapPoints = (currentRect: { x: number, y: number, width: number, height: number }) => {
+  const snapPoints = {
+    horizontal: [] as number[],
+    vertical: [] as number[]
+  };
+
+  if (!snapConfig.enabled) return snapPoints;
+
+  // 网格吸附点
+  const gridStartX = Math.floor(currentRect.x / snapConfig.gridSize) * snapConfig.gridSize;
+  const gridStartY = Math.floor(currentRect.y / snapConfig.gridSize) * snapConfig.gridSize;
+  
+  // 添加更多网格点
+  for (let i = -5; i <= 5; i++) {
+    snapPoints.horizontal.push(gridStartX + i * snapConfig.gridSize);
+    snapPoints.vertical.push(gridStartY + i * snapConfig.gridSize);
+  }
+
+  // 当前元素的边缘和中心点（用于与其他元素对齐）
+  const currentElementPoints = {
+    left: currentRect.x,
+    centerX: currentRect.x + currentRect.width / 2,
+    right: currentRect.x + currentRect.width,
+    top: currentRect.y,
+    centerY: currentRect.y + currentRect.height / 2,
+    bottom: currentRect.y + currentRect.height
+  };
+
+  // 其他元素边缘吸附点
+  pages.value.forEach(page => {
+    if (dragState.dragPageIds.includes(page.id)) return; // 跳过当前拖拽的元素
+    
+    const rect = page.rect;
+    
+    // 左边缘、中心、右边缘
+    snapPoints.horizontal.push(rect.x);
+    snapPoints.horizontal.push(rect.x + rect.width / 2);
+    snapPoints.horizontal.push(rect.x + rect.width);
+    
+    // 上边缘、中心、下边缘
+    snapPoints.vertical.push(rect.y);
+    snapPoints.vertical.push(rect.y + rect.height / 2);
+    snapPoints.vertical.push(rect.y + rect.height);
+
+    // 添加当前元素与其他元素对齐的点
+    // 水平对齐：左对左、中对中、右对右
+    snapPoints.horizontal.push(rect.x - currentElementPoints.left + currentRect.x);
+    snapPoints.horizontal.push(rect.x + rect.width / 2 - currentElementPoints.centerX + currentRect.x);
+    snapPoints.horizontal.push(rect.x + rect.width - currentElementPoints.right + currentRect.x);
+    
+    // 垂直对齐：上对上、中对中、下对下
+    snapPoints.vertical.push(rect.y - currentElementPoints.top + currentRect.y);
+    snapPoints.vertical.push(rect.y + rect.height / 2 - currentElementPoints.centerY + currentRect.y);
+    snapPoints.vertical.push(rect.y + rect.height - currentElementPoints.bottom + currentRect.y);
+  });
+
+  return snapPoints;
+};
+const checkSnap = (currentX: number, currentY: number, snapPoints: { horizontal: number[], vertical: number[] }) => {
+  let snappedX = currentX;
+  let snappedY = currentY;
+  let horizontalGuide: number | null = null;
+  let verticalGuide: number | null = null;
+
+  // 水平方向吸附检测
+  let minHorizontalDistance = snapConfig.distance;
+  for (const point of snapPoints.horizontal) {
+    const distance = Math.abs(currentX - point);
+    if (distance < minHorizontalDistance) {
+      minHorizontalDistance = distance;
+      snappedX = point;
+      horizontalGuide = point;
+    }
+  }
+
+  // 垂直方向吸附检测
+  let minVerticalDistance = snapConfig.distance;
+  for (const point of snapPoints.vertical) {
+    const distance = Math.abs(currentY - point);
+    if (distance < minVerticalDistance) {
+      minVerticalDistance = distance;
+      snappedY = point;
+      verticalGuide = point;
+    }
+  }
+
+  return {
+    x: snappedX,
+    y: snappedY,
+    horizontalGuide,
+    verticalGuide
+  };
+};
+
+// 更新辅助线显示
+const updateGuideLines = (horizontal: number | null, vertical: number | null) => {
+  guideLines.horizontal = horizontal !== null ? [horizontal] : [];
+  guideLines.vertical = vertical !== null ? [vertical] : [];
+  guideLines.visible = horizontal !== null || vertical !== null;
+};
+
+// 绘制辅助线
+// 绘制辅助线
+const drawGuideLines = () => {
+  if (!drawer.value || !guideLines.visible) return;
+
+  // 清除之前的辅助线
+  drawer.value.clearGuideLines();
+
+  // 绘制水平辅助线
+  guideLines.horizontal.forEach(y => {
+    const line = new Rectutils(
+      {
+        x: -10000, // 足够长的线
+        y: y,
+        width: 20000,
+        height: snapConfig.guides.thickness,
+        isFill: true,
+        color: snapConfig.guides.color
+      },
+      'guide-line'
+    );
+    drawer.value?.addGuideLine(line);
+  });
+
+  // 绘制垂直辅助线
+  guideLines.vertical.forEach(x => {
+    const line = new Rectutils(
+      {
+        x: x,
+        y: -10000, // 足够长的线
+        width: snapConfig.guides.thickness,
+        height: 20000,
+        isFill: true,
+        color: snapConfig.guides.color
+      },
+      'guide-line'
+    );
+    drawer.value?.addGuideLine(line);
+  });
+};
+
+
 // 生命周期
 onMounted(() => {
   // 数据读取
@@ -2619,5 +2879,23 @@ button:disabled {
   background: #f8f9fa;
   border-radius: 4px;
   border-left: 3px solid #3b82f6;
+}
+
+.snap-indicator {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+
+.snap-info {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  gap: 12px;
 }
 </style>
