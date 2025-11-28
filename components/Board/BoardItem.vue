@@ -1,5 +1,5 @@
 <template>
-  <div ref="shapeContainer" class="shape-container"></div>
+  <div ref="shapeContainer" class="shape-container" draggable="false"></div>
 </template>
 
 <script setup lang="ts">
@@ -207,7 +207,7 @@ const updateSelectionBox = (shape: any) => {
 };
 
 const updateSelectionVisibility = () => {
-  console.log("updateSelectionVisibility",props.boxshow);
+  console.log("updateSelectionVisibility", props.boxshow);
   if (selectionGroup) {
     selectionGroup.style("display", props.boxshow ? "block" : "none");
     if (props.boxshow && currentShape) {
@@ -316,6 +316,88 @@ const init = async () => {
     case "Image":
       currentShape = await renderImage();
       break;
+    case "Triangle":
+      currentShape = currentSvg.append("polygon")
+        .attr("points", `${centerX - r},${centerY - r} ${centerX + r},${centerY - r} ${centerX},${centerY + r}`)
+        .attr("fill", fillColor)
+        .attr("stroke", props.strokeColor).attr("stroke-width", props.strokeWidth)
+        .attr("vector-effect", "non-scaling-stroke");
+      break;
+    case "insertArrow":
+      // 先创建箭头定义
+      const defs = currentSvg.select("defs").node() ?
+        currentSvg.select("defs") :
+        currentSvg.append("defs");
+
+      // 检查是否已有箭头定义，避免重复创建
+      if (!defs.select("#arrow-" + props.id).node()) {
+        defs.append("marker")
+          .attr("id", "arrow-" + props.id)
+          .attr("markerUnits", "strokeWidth")
+          .attr("markerWidth", 12)
+          .attr("markerHeight", 12)
+          .attr("orient", "auto")
+          .attr("viewBox", "0 -5 10 10")
+          .append("path")
+          .attr("d", "M0,-5L10,0L0,5")
+          .attr("fill", props.color)
+          .attr("stroke-width", 1)
+          .attr("stroke-linecap", "round");
+      }
+
+      // 绘制带箭头的线条（从左上到右下）
+      currentShape = currentSvg.append("line")
+        .attr("x1", 20)
+        .attr("y1", 20)
+        .attr("x2", w - 20)
+        .attr("y2", h - 20)
+        .attr("stroke", props.color)
+        .attr("stroke-width", props.strokeWidth)
+        .attr("marker-end", `url(#arrow-${props.id})`)
+        .attr("vector-effect", "non-scaling-stroke");
+      break;
+    case "insertStar":
+      // 计算五角星的10个顶点（5个外顶点和5个内顶点）
+      const starPoints = [];
+      const outerRadius = r;
+      const innerRadius = r * 0.38; // 内径约为外径的38%
+
+      for (let i = 0; i < 10; i++) {
+        const angle = Math.PI / 2 + (i * Math.PI / 5); // 从顶部开始绘制
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY - radius * Math.sin(angle); // SVG坐标系Y轴向下
+        starPoints.push(`${x},${y}`);
+      }
+
+      currentShape = currentSvg.append("polygon")
+        .attr("points", starPoints.join(" "))
+        .attr("fill", fillColor)
+        .attr("stroke", props.strokeColor)
+        .attr("stroke-width", props.strokeWidth)
+        .attr("vector-effect", "non-scaling-stroke");
+      break;
+    case "insertHeart":
+      // 使用标准心形方程
+      const heartPath = `
+    M ${centerX},${centerY + r * 0.2}
+    C ${centerX + r * 0.3},${centerY - r * 0.2} 
+      ${centerX + r * 0.7},${centerY - r * 0.8} 
+      ${centerX},${centerY - r * 0.6}
+    C ${centerX - r * 0.7},${centerY - r * 0.8} 
+      ${centerX - r * 0.3},${centerY - r * 0.2} 
+      ${centerX},${centerY + r * 0.2}
+    Z
+  `;
+  console.log('heartPath', heartPath);
+
+      currentShape = currentSvg.append("path")
+        .attr("d", heartPath)
+        .attr("fill", fillColor)
+        .attr("stroke", props.strokeColor)
+        .attr("stroke-width", props.strokeWidth)
+        .attr("vector-effect", "non-scaling-stroke");
+      break;
     default:
       currentShape = currentSvg.append("circle")
         .attr("cx", centerX).attr("cy", centerY).attr("r", r)
@@ -395,5 +477,18 @@ onUnmounted(() => {
   fill: #1890ff;
   r: 6;
   transform: translateZ(0) scale(1.1);
+}
+
+svg {
+  -webkit-user-drag: none;
+  /* Chrome, Safari, Opera */
+  -khtml-user-drag: none;
+  /* Konqueror */
+  -moz-user-drag: none;
+  /* Firefox */
+  -ms-user-drag: none;
+  /* Internet Explorer/Edge */
+  user-drag: none;
+  /* Standard syntax */
 }
 </style>

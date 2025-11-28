@@ -45,7 +45,7 @@ const props = withDefaults(defineProps<menuProps>(), {
         {
             name: "三角形",
             icon: "pi-caret-down", // 使用向下箭头表示三角形
-            action: "Line"
+            action: "Triangle"
         },
         {
             name: "直线",
@@ -63,11 +63,6 @@ const props = withDefaults(defineProps<menuProps>(), {
             action: "Image"
         },
         {
-            name: "表格",
-            icon: "pi-table",
-            action: "insertTable"
-        },
-        {
             name: "箭头",
             icon: "pi-arrow-right",
             action: "insertArrow"
@@ -81,11 +76,6 @@ const props = withDefaults(defineProps<menuProps>(), {
             name: "心形",
             icon: "pi-heart",
             action: "insertHeart"
-        },
-        {
-            name: "云朵",
-            icon: "pi-cloud",
-            action: "insertCloud"
         }
     ],
     visible: false,

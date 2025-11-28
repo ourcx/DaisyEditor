@@ -30,7 +30,7 @@ export interface ShapesProps {
   BIUSArr?:string[];
   rotate?: number;
 }
-export type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie" | "Image"
+export type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie" | "Image" | "Triangle"|"insertArrow" |"insertStar" |"insertHeart"
 
 export type filter= 'blur' | 'grayscale' | 'invert' | 'none'
 

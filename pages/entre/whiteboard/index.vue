@@ -228,7 +228,7 @@
     <BottomControlBar :transform="transformRef" :can-undo="canUndo" :can-redo="canRedo" @zoom-in="zoomIn"
       @zoom-out="zoomOut" @undo="handleUndo" @redo="handleRedo" @toggle-guides="toggleGuides" />
 
-    <BoardLeft class="z-dialog" id="boardLeft" />
+    <BoardLeft class="z-bar" id="boardLeft" />
     <!-- 小地图区域 -->
     <div v-if="isMinimapVisible"
       class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96">
@@ -302,6 +302,7 @@ import type { menuData, Shape } from '~/types/components/type';
 import type { filter as Filter } from '~/types/components/type';
 import TextEditOverlay from '~/components/Board/TextEditOverlay/TextEditOverlay.vue';
 import BottomControlBar from '~/components/Board/BottomControlBar/BottomControlBar.vue';
+import BoardMeunList from '~/server/BoardMeunList';
 import { defineAsyncComponent } from 'vue';
 import { onUnmounted } from 'vue';
 //交互管理
@@ -1652,40 +1653,14 @@ const handleElementDragEnd = (event: MouseEvent) => {
 
 
 const handleSelectionEnd = (event: MouseEvent) => {
+  if (keyboardState.isSpacePressed) return
   interactionState.isSelecting = false;
   drawer.value?.clear();
-
-  // 如果框选区域很小，可能是点击而不是框选
-  const { startX, startY, endX, endY } = interactionState.areaPoint;
-  const selectionWidth = Math.abs(endX - startX);
-  const selectionHeight = Math.abs(endY - startY);
-
-  // 如果是有效的框选（区域足够大），更新高亮状态
-  // if (selectionWidth > 5 && selectionHeight > 5) {
-  //   const newHighlights = new Set<string>();
-  //   rectInfoList.value.forEach((item) => {
-  //     if (computedIsSelected(interactionState.areaPoint, item)) {
-  //       newHighlights.add(item.id);
-  //     }
-  //   });
-  //   highRectList.value = newHighlights;
-  //   console.log(highRectList.value,"sssssssssssssssss")
-
-  //   // 标记刚刚结束框选
-  //   interactionState.justFinishedSelecting = true;
-  //   // 短暂延迟后重置标志
-  //   setTimeout(() => {
-  //     interactionState.justFinishedSelecting = false;
-  //   }, 100);
-  // } else {
-  //   // 如果是很小的点击区域，不改变选择状态
-  //   // 保持原有选择，不执行任何操作
-  // }
 };
 // 框选相关函数
 const startSelection = (event: MouseEvent) => {
   if (interactionMode.value !== 'select') return;
-
+  if (keyboardState.isSpacePressed) return
   doubleClickMenuState.visible = false;
 
   interactionState.isSelecting = true;
@@ -1698,6 +1673,7 @@ const startSelection = (event: MouseEvent) => {
 
 const handleSelectionMove = (event: MouseEvent) => {
   if (!interactionState.isSelecting) return;
+  if (keyboardState.isSpacePressed) return
 
   const { clientX, clientY } = event;
   interactionState.areaPoint.endX = clientX;
@@ -2197,6 +2173,18 @@ const ClickBoardMeun = (item: menuData, x: number, y: number) => {
     case "Image":
       mode = BoardMeunList.addImage(x, y)
       break
+    case "Triangle":
+      mode = BoardMeunList.addTriangle(x, y)
+      break
+    case "insertArrow":
+      mode = BoardMeunList.addInsertArrow(x, y)
+      break
+    case "insertStar":
+      mode = BoardMeunList.addInsertStar(x, y)
+      break
+    case "insertHeart":
+      mode = BoardMeunList.addInsertHeart(x, y)
+      break
   }
   if (mode) {
     pages.value.push(mode)
@@ -2207,102 +2195,7 @@ const ClickBoardMeun = (item: menuData, x: number, y: number) => {
 }
 
 
-const BoardMeunList = {
-  //添加矩形
-  addRect(x: any, y: any) {
-    const newElement: WhithBoardProps = {
-      id: Date.now(),
-      type: "Rect",
-      rect: {
-        x: x,
-        y: y,
-        width: 100,
-        height: 100
-      },
-      background: "#ffffff",
-      borderWidth: 1,
-      borderColor: "#000000",
-    }
-    return newElement
-  },
 
-  //添加圆形
-  addCircle(x: any, y: any) {
-    const newElement: WhithBoardProps = {
-      id: Date.now(),
-      type: "circle",
-      rect: {
-        x: x,
-        y: y,
-        width: 100,
-        height: 100
-      },
-      background: "#ffffff",
-      borderWidth: 1,
-      borderColor: "#000000",
-    }
-    return newElement
-  },
-  //添加直线
-  addLine(x: any, y: any) {
-    const newElement: WhithBoardProps = {
-      id: Date.now(),
-      type: "Line",
-      rect: {
-        x: x,
-        y: y,
-        width: 100,
-        height: 100
-      },
-      background: "#ffffff",
-      borderWidth: 1,
-      borderColor: "#000000",
-    }
-    return newElement
-  },
-
-  //添加文本
-  addText(x: any, y: any) {
-    const newElement: WhithBoardProps = {
-      id: Date.now(),
-      type: "Text",
-      rect: {
-        x: x,
-        y: y,
-        width: 100,
-        height: 100
-      },
-      text: "请输入文本",
-      textSize: 16,
-      background: "#ffffff",
-      borderWidth: 1,
-      borderColor: "#000000",
-    }
-    return newElement
-  },
-
-  //添加图片
-  addImage(x: any, y: any) {
-    const newElement: WhithBoardProps = {
-      id: Date.now(),
-      type: "Image",
-      rect: {
-        x: x,
-        y: y,
-        width: 100,
-        height: 100,
-      },
-      image: "https://picsum.photos/200/300",
-      background: "#ffffff",
-      borderWidth: 1,
-      borderColor: "#000000",
-      BIUSArr: [],
-    }
-    return newElement
-  },
-
-
-}
 
 //文字处理
 const textEditState = reactive({
