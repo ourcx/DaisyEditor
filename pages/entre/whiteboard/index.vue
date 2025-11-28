@@ -374,19 +374,7 @@ const currentSnapPoints = reactive({
   y: null as number | null
 });
 
-const menuItems: MenuItem[] = [
-  {
-    key: 'copy',
-    label: '粘贴',
-    icon: 'EditCopy',
-    handler: () => { }
-  },
-  {
-    key: 'delete',
-    label: '删除',
-    icon: 'Delete',
-    handler: () => { }
-  },
+const menuItems = reactive<MenuItem[]>([
   {
     label: '网格',
     icon: 'Grid',
@@ -463,7 +451,7 @@ const menuItems: MenuItem[] = [
       });
     }
   }
-]
+])
 const curPage = ref<string>('');
 //当前的菜单元素
 // 计算属性：是否可以撤销/重做
@@ -646,9 +634,6 @@ const handleGlobalClick = (event: MouseEvent) => {
     !target.closest('.floating-trigger')) {
     closeFloatingMenu();
   }
-
-  // 移除空白区域清除选择的逻辑，因为已经在 handleContainerMouseDown 中处理
-  // 空白区域点击清除选择的功能由 handleContainerMouseDown 负责
 };
 
 //菜单颜色
@@ -1031,6 +1016,10 @@ const handlePageClick = (event: MouseEvent, page: WhithBoardProps) => {
   if ((event.target as HTMLElement).closest('.floating-trigger')) {
     return;
   }
+  //排除右键
+  if (event.button === 2) {
+    return;
+  }
 
   clickPageItem(event);
 };
@@ -1063,7 +1052,6 @@ const clickPageItem = (e: MouseEvent, page?: WhithBoardProps) => {
 };
 
 const toast = useToast();
-const router = useRouter();
 
 const floatingMenuItems = ref([
   {
@@ -2106,7 +2094,7 @@ const pasteElement = () => {
 
 const deletePageItem = () => {
   const highRectKeys = new Set(Array.from(highRectList.value.keys()));
-
+  console.log(highRectKeys,"删除");
   pages.value = pages.value.filter((item) => {
     return !highRectKeys.has(`id-key-${item.id}`);
   });
