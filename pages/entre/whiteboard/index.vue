@@ -6,6 +6,11 @@
   <div class="canvas-container" ref="containerRef" @contextmenu.prevent="showContextMenu"
     @mousedown="handleContainerMouseDown" @mousemove="handleContainerMouseMove" @mouseup="handleContainerMouseUp">
     <ContxtMenu ref="contextMenuRef" :menu-items="menuItems" class="z-dialog" />
+    <TextEditOverlay v-model:visible="textEditState.visible" :position="textEditState.position"
+      :text="textEditState.editingText" :font-size="textEditState.fontSize" :font-weight="textEditState.fontWeight"
+      :color="textEditState.color" :font-style="textEditState.fontStyle" :text-decoration="textEditState.textDecoration"
+      :width="textEditState.width" :height="textEditState.height" placeholder="请输入文本内容..."
+      @confirm="handleTextEditConfirm" @cancel="handleTextEditCancel" />
     <div class="grid-bg" :style="gridStyle"></div>
     <div ref="canvasRef" class="canvas" :style="canvasStyle">
       <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" :id="`${page.id}`"
@@ -295,6 +300,7 @@ import { useToast } from 'primevue/usetoast';
 import BoardMeun from '~/components/Board/BoardMeun.vue';
 import type { menuData, Shape } from '~/types/components/type';
 import type { filter as Filter } from '~/types/components/type';
+import TextEditOverlay from '~/components/Board/TextEditOverlay/TextEditOverlay.vue';
 import BottomControlBar from '~/components/Board/BottomControlBar/BottomControlBar.vue';
 import { defineAsyncComponent } from 'vue';
 import { onUnmounted } from 'vue';
@@ -1013,13 +1019,13 @@ const clickPageItem = (e: MouseEvent, page?: WhithBoardProps) => {
       newHighlights.add(id);
     }
     highRectList.value = newHighlights;
-    console.log(highRectList.value,"clicPageItem")
+    console.log(highRectList.value, "clicPageItem")
   } else {
     // 没有Ctrl键，单选
     const newHighlights = new Set([id]);
     if (JSON.stringify([...newHighlights]) !== JSON.stringify([...highRectList.value])) {
       highRectList.value = newHighlights;
-      console.log(highRectList.value,"clicPageItem")
+      console.log(highRectList.value, "clicPageItem")
     }
   }
 };
@@ -1448,6 +1454,7 @@ const eventHandlers = {
   handleCanvasDoubleClick(e: MouseEvent) {
     if (interactionState.isDragging) return;
     if (interactionState.isSelecting) return;
+    if (highRectList.value.size > 0) return
     doubleClickMenuState.visible = !doubleClickMenuState.visible;
     doubleClickMenuState.position = { x: e.clientX, y: e.clientY };
   },
@@ -1467,7 +1474,7 @@ const handleContainerMouseDown = (event: MouseEvent) => {
     // 只有在没有选中任何元素时才开始框选
     // 如果已经有选中元素，点击空白区域应该清除选择
     if (highRectList.value.size === 0) {
-      console.log('clearSelection',highRectList.value);
+      console.log('clearSelection', highRectList.value);
       startSelection(event);
     } else {
       console.log('clearSelection111111111111');
@@ -1475,7 +1482,7 @@ const handleContainerMouseDown = (event: MouseEvent) => {
       highRectList.value.clear();
       //阻止后面的事件
       event.stopPropagation();
-      console.log('clearSelection111111111111',highRectList.value);
+      console.log('clearSelection111111111111', highRectList.value);
     }
   }
 };
@@ -1496,7 +1503,7 @@ const handleContainerMouseMove = (event: MouseEvent) => {
 };
 
 const handleContainerMouseUp = (event: MouseEvent) => {
-  console.log('handleContainerMouseUp',interactionMode.value);
+  console.log('handleContainerMouseUp', interactionMode.value);
   switch (interactionMode.value) {
     case 'drag':
       handleElementDragEnd(event);
@@ -1528,7 +1535,7 @@ const startElementDrag = (event: MouseEvent, pageElement: HTMLElement) => {
   if (!highRectList.value.has(elementId)) {
     highRectList.value.clear();
     highRectList.value.add(elementId);
-    console.log(highRectList.value,'startElementDrag')
+    console.log(highRectList.value, 'startElementDrag')
   }
 
   // 判断是否多选拖拽
@@ -1596,7 +1603,7 @@ const handleElementDragMove = (event: MouseEvent) => {
   const newHighlights = new Set(dragState.dragPageIds.map(id => `id-key-${id}`));
   if (JSON.stringify([...newHighlights]) !== JSON.stringify([...highRectList.value])) {
     highRectList.value = newHighlights;
-    console.log(highRectList.value,"handleELement")
+    console.log(highRectList.value, "handleELement")
   }
 };
 
@@ -1626,7 +1633,7 @@ const handleElementDragEnd = (event: MouseEvent) => {
 
   // 确保高亮状态正确 - 使用新的Set强制更新
   highRectList.value = new Set(dragState.dragPageIds.map(id => `id-key-${id}`));
-  console.log(highRectList.value,"handdddddddddddd")
+  console.log(highRectList.value, "handdddddddddddd")
 
   drawer.value?.clear();
 
@@ -1647,12 +1654,12 @@ const handleElementDragEnd = (event: MouseEvent) => {
 const handleSelectionEnd = (event: MouseEvent) => {
   interactionState.isSelecting = false;
   drawer.value?.clear();
-  
+
   // 如果框选区域很小，可能是点击而不是框选
   const { startX, startY, endX, endY } = interactionState.areaPoint;
   const selectionWidth = Math.abs(endX - startX);
   const selectionHeight = Math.abs(endY - startY);
-  
+
   // 如果是有效的框选（区域足够大），更新高亮状态
   // if (selectionWidth > 5 && selectionHeight > 5) {
   //   const newHighlights = new Set<string>();
@@ -1663,7 +1670,7 @@ const handleSelectionEnd = (event: MouseEvent) => {
   //   });
   //   highRectList.value = newHighlights;
   //   console.log(highRectList.value,"sssssssssssssssss")
-    
+
   //   // 标记刚刚结束框选
   //   interactionState.justFinishedSelecting = true;
   //   // 短暂延迟后重置标志
@@ -1857,26 +1864,6 @@ const initializeEvents = () => {
       handler: eventHandlers.handleKeyUp
     }
   ]);
-
-  // 框选事件
-  // eventManager.addEventListeners([
-  //   {
-  //     element: window,
-  //     type: 'mousedown',
-  //     handler: eventHandlers.handleSelectionStart
-  //   },
-  //   {
-  //     element: window,
-  //     type: 'mousemove',
-  //     handler: eventHandlers.handleSelectionMove
-  //   },
-  //   {
-  //     element: window,
-  //     type: 'mouseup',
-  //     handler: eventHandlers.handleSelectionEnd
-  //   }
-  // ]);
-
   //点击事件
   eventManager.addEventListeners([
     {
@@ -1900,27 +1887,13 @@ const initializeEvents = () => {
       element: containerRef.value,
       type: 'dblclick',
       handler: eventHandlers.handleCanvasDoubleClick
+    },
+    {
+      element: canvasRef.value,
+      type: 'dblclick',
+      handler: handleCanvasDoubleClick
     }
   ])
-
-  //拖拽事件dragstart监听
-  // eventManager.addEventListeners([
-  //   {
-  //     element: containerRef.value,
-  //     type: 'mousedown',
-  //     handler: eventHandlers.onMouseDown
-  //   },
-  //   {
-  //     element: containerRef.value,
-  //     type: 'mouseup',
-  //     handler: eventHandlers.onMouseUp
-  //   },
-  //   {
-  //     element: containerRef.value,
-  //     type: 'mousemove',
-  //     handler: eventHandlers.onMouseMove
-  //   }
-  // ])
 
   // 处理子组件传来的开始缩放事件
   eventManager.addEventListeners([
@@ -2331,7 +2304,159 @@ const BoardMeunList = {
 
 }
 
+//文字处理
+const textEditState = reactive({
+  visible: false,
+  editingPageId: null as number | null,
+  editingText: '',
+  position: { x: 0, y: 0 },
+  fontSize: 16,
+  fontWeight: 'normal',
+  color: '#000000',
+  fontStyle: 'normal' as 'normal' | 'italic',
+  textDecoration: 'none' as 'none' | 'underline' | 'line-through',
+  width: 300,
+  height: 150
+});
 
+// 修改双击事件处理
+const handleCanvasDoubleClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+
+  // 检查是否双击在文字元素上
+  const pageElement = target.closest('.page-item') as HTMLElement;
+  if (pageElement) {
+    const pageId = pageElement.id ? parseInt(pageElement.id, 10) : null;
+    if (pageId) {
+      const page = pages.value.find(p => p.id === pageId);
+      if (page && page.type === 'Text') {
+        startTextEdit(e, page);
+        return; // 如果是文字编辑，不显示双击菜单
+      }
+    }
+  }
+
+  // 原有的双击菜单逻辑
+  if (interactionState.isDragging) return;
+  if (interactionState.isSelecting) return;
+  if (highRectList.value.size > 0) return;
+
+  doubleClickMenuState.visible = !doubleClickMenuState.visible;
+  doubleClickMenuState.position = { x: e.clientX, y: e.clientY };
+};
+
+// 开始文字编辑
+const startTextEdit = (event: MouseEvent, page: WhithBoardProps) => {
+  event.stopPropagation();
+
+  // 设置编辑状态
+  textEditState.editingPageId = page.id;
+  textEditState.editingText = page.text || '';
+  textEditState.fontSize = page.textSize || 16;
+  textEditState.fontWeight = page.textWeight || 'normal';
+  textEditState.color = page.background || '#000000';
+
+  // 设置文字样式
+  if (page.BIUSArr) {
+    textEditState.fontStyle = page.BIUSArr.includes('Italic') ? 'italic' : 'normal';
+    if (page.BIUSArr.includes('Underline')) {
+      textEditState.textDecoration = 'underline';
+    } else if (page.BIUSArr.includes('Strikethrough')) {
+      textEditState.textDecoration = 'line-through';
+    } else {
+      textEditState.textDecoration = 'none';
+    }
+  }
+
+  // 计算编辑框位置
+  const pageElement = document.getElementById(`${page.id}`);
+  if (pageElement) {
+    const rect = pageElement.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // 计算最佳位置，避免超出视口
+    let x = rect.left + window.scrollX;
+    let y = rect.top + window.scrollY;
+
+    // 如果右侧空间不足，显示在左侧
+    if (x + textEditState.width > viewportWidth - 20) {
+      x = Math.max(20, viewportWidth - textEditState.width - 20);
+    }
+
+    // 如果底部空间不足，显示在上方
+    if (y + textEditState.height > viewportHeight - 20) {
+      y = Math.max(20, viewportHeight - textEditState.height - 20);
+    }
+
+    textEditState.position = { x, y };
+  } else {
+    // 备用位置：鼠标位置
+    textEditState.position = {
+      x: event.clientX,
+      y: event.clientY
+    };
+  }
+
+  // 调整编辑框尺寸基于文字内容
+  const textLength = page.text?.length || 0;
+  if (textLength > 50) {
+    textEditState.width = 400;
+    textEditState.height = 200;
+  } else if (textLength > 20) {
+    textEditState.width = 350;
+    textEditState.height = 180;
+  }
+
+  textEditState.visible = true;
+};
+
+// 处理文字编辑确认
+const handleTextEditConfirm = (newText: string) => {
+  if (!textEditState.editingPageId) return;
+
+  const finalText = newText.trim() || '请输入文本';
+
+  // 更新页面数据
+  pages.value = pages.value.map(page => {
+    if (page.id === textEditState.editingPageId) {
+      return {
+        ...page,
+        text: finalText
+      };
+    }
+    return page;
+  });
+
+  // 保存数据
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+  addHistory();
+
+  // 显示成功提示
+  toast.add({
+    severity: 'success',
+    summary: '文本更新',
+    detail: '文本内容已更新',
+    life: 2000
+  });
+
+  resetTextEditState();
+};
+
+// 处理文字编辑取消
+const handleTextEditCancel = () => {
+  resetTextEditState();
+};
+
+// 重置文字编辑状态
+const resetTextEditState = () => {
+  textEditState.visible = false;
+  textEditState.editingPageId = null;
+  textEditState.editingText = '';
+  textEditState.position = { x: 0, y: 0 };
+  textEditState.width = 300;
+  textEditState.height = 150;
+};
 
 
 // 生命周期
