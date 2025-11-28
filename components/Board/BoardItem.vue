@@ -7,7 +7,6 @@ import { ref, onMounted, watch, nextTick, onUnmounted } from "vue";
 import { select } from "d3-selection";
 import { curveBasis, line } from "d3-shape";
 import type { BIUS, filter, ShapesProps } from "~/types/components/type";
-import { Style } from '../../.nuxt/components';
 
 definePageMeta({
   layout: false,
