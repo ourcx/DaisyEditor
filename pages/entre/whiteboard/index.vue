@@ -14,7 +14,7 @@
     <div class="grid-bg" :style="gridStyle"></div>
     <div ref="canvasRef" class="canvas" :style="canvasStyle">
       <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" :id="`${page.id}`"
-        class="absolute rounded-lg cursor-pointer select-none  duration-200 page-item overflow-visible" :style="{
+        class="absolute rounded-lg cursor-pointer select-none duration-200 page-item overflow-visible" :style="{
           top: page.rect.y + 'px',
           left: page.rect.x + 'px',
           pointerEvents: 'auto',
@@ -24,7 +24,7 @@
           //旋转
           transform: `rotate(${page.rotate}deg)`,
           transformOrigin: 'center',
-          padding: 10
+          padding: 10,
         }" @click.stop="handlePageClick($event, page)">
         <BoardItem :width="page.rect.width" :height="page.rect.height" :cx="page.rect.width" :cy="page.rect.height"
           :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id" @update:size="handleSizeUpdate"
@@ -120,7 +120,6 @@
             </div>
           </div>
 
-
           <!-- 图片设置 -->
           <div v-else-if="currentSubMenu === 'image'" class="sub-menu-section z-2">
             <div class="flex items-center justify-between mb-3 relative">
@@ -202,7 +201,6 @@
                   <label for="ingredient4"> 删除线 </label>
                 </div>
               </div>
-
             </div>
 
             <div class="flex gap-2 mt-3">
@@ -228,7 +226,7 @@
     <BottomControlBar :transform="transformRef" :can-undo="canUndo" :can-redo="canRedo" @zoom-in="zoomIn"
       @zoom-out="zoomOut" @undo="handleUndo" @redo="handleRedo" @toggle-guides="toggleGuides" />
 
-    <BoardLeft class="z-bar" id="boardLeft" />
+    <BoardLeft class="z-bar" id="boardLeft" @toolClick="toolClick" />
     <!-- 小地图区域 -->
     <div v-if="isMinimapVisible"
       class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96">
@@ -1224,7 +1222,7 @@ const handleMouseMove = (event: MouseEvent) => {
   if (!isResizing.value || !resizeState.value.activePageId) return;
 
   // 如果你有画布缩放 (transformRef.scale)，这里记得除以缩放比例
-  // const scale = transformRef.value.scale || 1; 
+  // const scale = transformRef.value.scale || 1;
   const scale = 1; // 暂时假设为 1，如果有缩放功能请替换上面那行
 
   const dx = (event.clientX - resizeState.value.startX) / scale;
@@ -1626,10 +1624,10 @@ const handleElementDragMove = (event: MouseEvent) => {
 
       const snapPoints = calculateSnapPoints(currentRect);
       const snapResult = checkSnap(newX, newY, snapPoints);
-      
+
       newX = snapResult.x;
       newY = snapResult.y;
-      
+
       // 更新辅助线
       if (snapConfig.guides.enabled) {
         updateGuideLines(snapResult.horizontalGuide, snapResult.verticalGuide);
@@ -1981,7 +1979,7 @@ const initCanvas = () => {
     console.error('Canvas element not found');
     return;
   }
-  
+
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
   canvas.style.position = 'fixed';
@@ -1989,7 +1987,7 @@ const initCanvas = () => {
   canvas.style.left = '0';
   canvas.style.zIndex = '5'; // 确保在正确层级
   canvas.style.pointerEvents = 'none'; // 不拦截鼠标事件
-  
+
   drawer.value = new Drawer({ view: canvas });
   console.log('Canvas initialized:', drawer.value);
 };
@@ -2094,7 +2092,7 @@ const pasteElement = () => {
 
 const deletePageItem = () => {
   const highRectKeys = new Set(Array.from(highRectList.value.keys()));
-  console.log(highRectKeys,"删除");
+  console.log(highRectKeys, "删除");
   pages.value = pages.value.filter((item) => {
     return !highRectKeys.has(`id-key-${item.id}`);
   });
@@ -2445,7 +2443,7 @@ const calculateSnapPoints = (currentRect: { x: number, y: number, width: number,
   // 网格吸附点
   const gridStartX = Math.floor(currentRect.x / snapConfig.gridSize) * snapConfig.gridSize;
   const gridStartY = Math.floor(currentRect.y / snapConfig.gridSize) * snapConfig.gridSize;
-  
+
   // 添加更多网格点
   for (let i = -5; i <= 5; i++) {
     snapPoints.horizontal.push(gridStartX + i * snapConfig.gridSize);
@@ -2465,14 +2463,14 @@ const calculateSnapPoints = (currentRect: { x: number, y: number, width: number,
   // 其他元素边缘吸附点
   pages.value.forEach(page => {
     if (dragState.dragPageIds.includes(page.id)) return; // 跳过当前拖拽的元素
-    
+
     const rect = page.rect;
-    
+
     // 左边缘、中心、右边缘
     snapPoints.horizontal.push(rect.x);
     snapPoints.horizontal.push(rect.x + rect.width / 2);
     snapPoints.horizontal.push(rect.x + rect.width);
-    
+
     // 上边缘、中心、下边缘
     snapPoints.vertical.push(rect.y);
     snapPoints.vertical.push(rect.y + rect.height / 2);
@@ -2483,7 +2481,7 @@ const calculateSnapPoints = (currentRect: { x: number, y: number, width: number,
     snapPoints.horizontal.push(rect.x - currentElementPoints.left + currentRect.x);
     snapPoints.horizontal.push(rect.x + rect.width / 2 - currentElementPoints.centerX + currentRect.x);
     snapPoints.horizontal.push(rect.x + rect.width - currentElementPoints.right + currentRect.x);
-    
+
     // 垂直对齐：上对上、中对中、下对下
     snapPoints.vertical.push(rect.y - currentElementPoints.top + currentRect.y);
     snapPoints.vertical.push(rect.y + rect.height / 2 - currentElementPoints.centerY + currentRect.y);
@@ -2576,6 +2574,26 @@ const drawGuideLines = () => {
   });
 };
 
+const toolClick = (cur: any, valueKey: any) => {
+  console.log('toolClick', cur);
+  const data: menuData = {
+    name: valueKey.name,
+    icon: valueKey.icon,
+    action: valueKey.key
+  }
+  switch (cur) {
+    case 'shape':
+      ClickBoardMeun(data, 0, 0)
+      toast.add({
+        severity: "success",
+        summary: "成功",
+        detail: "已添加" + valueKey.name + "元素在" + "0,0",
+        life: 2000,
+      })
+      break;
+  }
+}
+
 
 // 生命周期
 onMounted(() => {
@@ -2610,9 +2628,6 @@ onMounted(() => {
 onUnmounted(() => {
   eventManager.cleanupAll();
 });
-
-
-
 </script>
 
 <style scoped>
