@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
 import Popover from 'primevue/popover';
+
 const op = ref()
 // 定义 emits
 const emit = defineEmits<{
@@ -87,7 +88,7 @@ const emitToolClick = (valueKey: any) => {
   
   emit("toolClick", cur.value, valueKey);
 };
-const members: Record<'shape' | 'text', { name: string; icon: string; key: string }[]> = {
+const members: Record<string, { name: string; icon: string; key: string }[]> = {
   shape: [
     {
       name: "矩形",
@@ -140,6 +141,13 @@ const members: Record<'shape' | 'text', { name: string; icon: string; key: strin
       name: "文本",
       icon: "pi-file-edit",
       key: "Text"
+    }
+  ],
+  paintBrush: [
+    {
+      name: "画笔",
+      icon: "pi-paint-brush",
+      key: "PaintBrush"
     }
   ]
 }

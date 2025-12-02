@@ -29,8 +29,9 @@ export interface ShapesProps {
   filter?: filter;
   BIUSArr?:string[];
   rotate?: number;
+  path?: any;
 }
-export type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie" | "Image" | "Triangle"|"insertArrow" |"insertStar" |"insertHeart"
+export type Shape = "circle" | "Rect" | "Segment" | "Text" | "Line" | "Curve" | "Area" | "Arc" | "Pie" | "Image" | "Triangle"|"insertArrow" |"insertStar" |"insertHeart" | "Free"
 
 export type filter= 'blur' | 'grayscale' | 'invert' | 'none'
 

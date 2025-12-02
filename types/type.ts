@@ -25,6 +25,7 @@ export interface WhithBoardItemProps {
   BIUSArr?: string[];
   //旋转
   rotate?: number;
+  path?: any;
 }
 
 export type AreaPoint = {

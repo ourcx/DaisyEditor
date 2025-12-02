@@ -30,8 +30,8 @@
           :boxshow="highRectList.has(`id-key-${page.id}`)" :id="page.id" @update:size="handleSizeUpdate"
           :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" :color="page.background" :shape="page.type"
           :strokeColor="page.borderColor" :strokeWidth="page.borderWidth" :image="page.image || ''" :text="page.text"
-          :textSize="page.textSize" :textWeight="page.textWeight" :filter="page.filter"
-          @resize-start="handleResizeStart($event, page)" :BIUSArr="page.BIUSArr" />
+          :textSize="page.textSize" :textWeight="page.textWeight" :filter="page.filter" :path="page.path"
+          @resize-start="handleResizeStart($event, page)" :BIUSArr="page.BIUSArr" @path-drawn="pathDrawn" />
 
         <!-- 浮动菜单触发按钮 -->
         <!-- 修改浮动按钮的事件绑定 -->
@@ -330,14 +330,15 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 // 状态管理
 const transformRef = ref({ x: 0, y: 0, scale: 1 });
 const pages = ref<WhithBoardProps[]>([
-  { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 1, },
+  { rect: { x: 1000, y: 600, width: 200, height: 200 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 1, },
   { rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 2 },
   { rect: { x: -300, y: 400, width: 200, height: 200 }, type: 'Line', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 3 },
   { rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
   { rect: { x: 800, y: 800, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 5, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
   { rect: { x: 1000, y: 200, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 6, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36, BIUSArr: [] },
+  // { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36, BIUSArr: [] },
   { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8, rotate: 45 },
+  { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: 9, path: 'M 117 62 L 116 62 L 116 63 L 115 65 L 113 66 L 112 67 L 112 69 L 110 70 L 108 71 L 108 72 L 106 73 L 105 74 L 103 76 L 100 78 L 96 81 L 92 83 L 88 87 L 82 90 L 76 94 L 70 98 L 63 102 L 56 106 L 51 109 L 46 111 L 43 112 L 40 114 L 38 114 L 37 115 L 36 115' },
 ]);
 const WHITEBOARDPAGES = "whiteboard-pages"
 const isGuide = ref(true);
@@ -2418,6 +2419,23 @@ const handleTextEditCancel = () => {
   resetTextEditState();
 };
 
+
+
+const pathDrawn = (path: any, id: number) => {
+  console.log(path, "xxxxxxxxxxxxxxxxx")
+  pages.value = pages.value.map(page => {
+    if (page.id === id) {
+      const pathStr = page.path + path
+      return { ...page, path: pathStr }
+    }
+    return page
+  })
+  // 保存数据
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+  addHistory();
+}
+
+
 // 重置文字编辑状态
 const resetTextEditState = () => {
   textEditState.visible = false;
@@ -2581,15 +2599,22 @@ const toolClick = (cur: any, valueKey: any) => {
     icon: valueKey.icon,
     action: valueKey.key
   }
+  const x = transformRef.value.x;
+  const y = transformRef.value.y;
   switch (cur) {
     case 'shape':
-      ClickBoardMeun(data, 0, 0)
+      ClickBoardMeun(data, x, y)
       toast.add({
         severity: "success",
         summary: "成功",
-        detail: "已添加" + valueKey.name + "元素在" + "0,0",
+        detail: "已添加" + valueKey.name + "元素在" + `${transformRef.value.x},${transformRef.value.y}`,
         life: 2000,
       })
+      break;
+    case 'paintBrush':
+      //画布
+      const BrushData = { rect: { x: x, y: y, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: Date.now(), path: '' }
+      pages.value.push(BrushData as WhithBoardProps)
       break;
   }
 }
@@ -2600,6 +2625,7 @@ onMounted(() => {
   // 数据读取
   storageIndexDB.getData(WHITEBOARDPAGES).then((data) => {
     console.log("读取到的数据:", data);
+    // pages.value = data;
     getAllDomPoint();
     //初始化历史系统
     historyStore.initHistory(data || pages.value);
