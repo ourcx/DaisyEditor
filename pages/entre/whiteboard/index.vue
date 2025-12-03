@@ -260,7 +260,7 @@
         </div>
       </div>
 
-      <div class="slider w-full  relative border border-gray-200 rounded overflow-hidden bg-white">
+      <div class="slider w-full  relative border border-gray-200 rounded overflow-hidden bg-white" ref="minimap">
         <iframe class="slider__content w-full  border-none" ref="targetIframe" sandbox="allow-same-origin"
           @load="onIframeLoad" />
         <div
@@ -308,6 +308,7 @@ import { defineAsyncComponent } from 'vue';
 import { onUnmounted } from 'vue';
 import { availableShapes, fontWeightOptions } from '~/utils/data';
 import ChangePages from '~/components/Board/ChangePages/ChangePages.vue';
+import { snapdom } from '@zumer/snapdom';
 //交互管理
 const interactionMode = ref<'select' | 'drag' | 'canvasDrag' | 'rotate' | 'resize'>('select');
 const historyStore = useHistoryStore();
@@ -327,6 +328,7 @@ const filters = ref<selectFilter[]>([
   { name: '反色', code: 'invert' },
   { name: '无色', code: 'none' },
 ])
+const minimap = ref<HTMLDivElement | null>(null);
 //记录文字的形式
 const BIUS = ref()
 const BIUSArr = ref([])
@@ -334,120 +336,21 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 // 状态管理
 const transformRef = ref({ x: 0, y: 0, scale: 1 });
 const pages = ref<WhithBoardProps[]>([
-  { rect: { x: 1000, y: 600, width: 200, height: 200 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 1 },
+  { rect: { x: 1000, y: 600, width: 200, height: 200 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 1, },
   { rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 2 },
   { rect: { x: -300, y: 400, width: 200, height: 200 }, type: 'Line', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 3 },
   { rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
   { rect: { x: 800, y: 800, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 5, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
   { rect: { x: 1000, y: 200, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 6, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
+  // { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36, BIUSArr: [] },
   { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8, rotate: 45 },
   { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: 9, path: 'M 117 62 L 116 62 L 116 63 L 115 65 L 113 66 L 112 67 L 112 69 L 110 70 L 108 71 L 108 72 L 106 73 L 105 74 L 103 76 L 100 78 L 96 81 L 92 83 L 88 87 L 82 90 L 76 94 L 70 98 L 63 102 L 56 106 L 51 109 L 46 111 L 43 112 L 40 114 L 38 114 L 37 115 L 36 115' },
-  
-  // 以下是生成的100个数据（从id:10到id:109）
-  { rect: { x: 150, y: 250, width: 180, height: 180 }, type: 'circle', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 10 },
-  { rect: { x: -200, y: 300, width: 220, height: 150 }, type: 'Rect', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 11 },
-  { rect: { x: 450, y: -150, width: 100, height: 300 }, type: 'Line', background: '#e1f5fe', borderWidth: 4, borderColor: '#03a9f4', id: 12 },
-  { rect: { x: 700, y: 500, width: 250, height: 250 }, type: 'Image', background: '#fff8e1', borderWidth: 2, borderColor: '#ffb300', id: 13, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'sepia' },
-  { rect: { x: -400, y: -200, width: 180, height: 180 }, type: 'circle', background: '#e8f5e9', borderWidth: 2, borderColor: '#2e7d32', id: 14 },
-  { rect: { x: 300, y: 800, width: 300, height: 120 }, type: 'Rect', background: '#fff3e0', borderWidth: 3, borderColor: '#ff9800', id: 15, rotate: 30 },
-  { rect: { x: 900, y: -100, width: 150, height: 150 }, type: 'Image', background: '#fce4ec', borderWidth: 1, borderColor: '#e91e63', id: 16, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
-  { rect: { x: -600, y: 450, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#3f51b5', id: 17, path: 'M 50 50 L 150 50 L 150 150 L 50 150 Z' },
-  { rect: { x: 200, y: 400, width: 160, height: 160 }, type: 'circle', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 18 },
-  { rect: { x: 550, y: 100, width: 180, height: 240 }, type: 'Rect', background: '#e8f5e9', borderWidth: 3, borderColor: '#4caf50', id: 19 },
-  { rect: { x: -150, y: 600, width: 300, height: 100 }, type: 'Line', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 20 },
-  { rect: { x: 750, y: 300, width: 220, height: 220 }, type: 'Image', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 21, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
-  { rect: { x: 100, y: -300, width: 180, height: 180 }, type: 'circle', background: '#ffebee', borderWidth: 4, borderColor: '#f44336', id: 22 },
-  { rect: { x: 650, y: 700, width: 200, height: 120 }, type: 'Text', background: '#fff8e1', borderWidth: 2, borderColor: '#ffb300', id: 23, text: 'Sample Text', textSize: 28, BIUSArr: [] },
-  { rect: { x: -250, y: 200, width: 250, height: 250 }, type: 'Image', background: '#fce4ec', borderWidth: 1, borderColor: '#e91e63', id: 24, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 350, y: 450, width: 180, height: 180 }, type: 'Free', background: "transparent", borderWidth: 3, borderColor: '#3f51b5', id: 25, path: 'M 20 20 L 160 20 L 160 160 L 20 160 Z' },
-  { rect: { x: 850, y: 100, width: 150, height: 150 }, type: 'circle', background: '#e1f5fe', borderWidth: 2, borderColor: '#03a9f4', id: 26 },
-  { rect: { x: -500, y: -100, width: 220, height: 180 }, type: 'Rect', background: '#fff3e0', borderWidth: 3, borderColor: '#ff9800', id: 27, rotate: 15 },
-  { rect: { x: 150, y: 650, width: 200, height: 200 }, type: 'Image', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 28, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
-  { rect: { x: 500, y: 350, width: 180, height: 180 }, type: 'circle', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 29 },
-  { rect: { x: -350, y: 500, width: 300, height: 150 }, type: 'Rect', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 30 },
-  { rect: { x: 950, y: -50, width: 120, height: 280 }, type: 'Line', background: '#fff8e1', borderWidth: 4, borderColor: '#ffb300', id: 31 },
-  { rect: { x: 250, y: 100, width: 250, height: 250 }, type: 'Image', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 32, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
-  { rect: { x: -100, y: -250, width: 180, height: 180 }, type: 'circle', background: '#fce4ec', borderWidth: 2, borderColor: '#e91e63', id: 33 },
-  { rect: { x: 600, y: 550, width: 200, height: 100 }, type: 'Text', background: '#e1f5fe', borderWidth: 1, borderColor: '#03a9f4', id: 34, text: 'Hello World', textSize: 32, BIUSArr: [] },
-  { rect: { x: -200, y: 100, width: 220, height: 220 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 35, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'sepia' },
-  { rect: { x: 400, y: 700, width: 180, height: 180 }, type: 'Free', background: "transparent", borderWidth: 3, borderColor: '#3f51b5', id: 36, path: 'M 30 30 L 150 30 L 150 150 L 30 150 Z' },
-  { rect: { x: 900, y: 450, width: 150, height: 150 }, type: 'circle', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 37 },
-  { rect: { x: -450, y: 300, width: 240, height: 160 }, type: 'Rect', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 38, rotate: 60 },
-  { rect: { x: 100, y: 750, width: 200, height: 200 }, type: 'Image', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 39, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 550, y: 200, width: 180, height: 180 }, type: 'circle', background: '#fff8e1', borderWidth: 4, borderColor: '#ffb300', id: 40 },
-  { rect: { x: -300, y: -150, width: 280, height: 140 }, type: 'Rect', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 41 },
-  { rect: { x: 800, y: 50, width: 100, height: 300 }, type: 'Line', background: '#fce4ec', borderWidth: 2, borderColor: '#e91e63', id: 42 },
-  { rect: { x: 300, y: 500, width: 250, height: 250 }, type: 'Image', background: '#e1f5fe', borderWidth: 1, borderColor: '#03a9f4', id: 43, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
-  { rect: { x: -50, y: -350, width: 180, height: 180 }, type: 'circle', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 44 },
-  { rect: { x: 650, y: 650, width: 220, height: 120 }, type: 'Text', background: '#e8f5e9', borderWidth: 3, borderColor: '#4caf50', id: 45, text: 'Test Text', textSize: 24, BIUSArr: [] },
-  { rect: { x: -150, y: 0, width: 220, height: 220 }, type: 'Image', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 46, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
-  { rect: { x: 450, y: 800, width: 180, height: 180 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#3f51b5', id: 47, path: 'M 40 40 L 140 40 L 140 140 L 40 140 Z' },
-  { rect: { x: 950, y: 350, width: 150, height: 150 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 48 },
-  { rect: { x: -400, y: 400, width: 260, height: 180 }, type: 'Rect', background: '#fff8e1', borderWidth: 4, borderColor: '#ffb300', id: 49, rotate: 75 },
-  { rect: { x: 50, y: 850, width: 200, height: 200 }, type: 'Image', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 50, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'sepia' },
-  { rect: { x: 600, y: 150, width: 180, height: 180 }, type: 'circle', background: '#fce4ec', borderWidth: 2, borderColor: '#e91e63', id: 51 },
-  { rect: { x: -250, y: -200, width: 300, height: 120 }, type: 'Rect', background: '#e1f5fe', borderWidth: 1, borderColor: '#03a9f4', id: 52 },
-  { rect: { x: 850, y: 0, width: 120, height: 280 }, type: 'Line', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 53 },
-  { rect: { x: 350, y: 550, width: 250, height: 250 }, type: 'Image', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 54, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 0, y: -400, width: 180, height: 180 }, type: 'circle', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 55 },
-  { rect: { x: 700, y: 600, width: 200, height: 100 }, type: 'Text', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 56, text: 'Demo Text', textSize: 36, BIUSArr: [] },
-  { rect: { x: -100, y: -50, width: 220, height: 220 }, type: 'Image', background: '#fff8e1', borderWidth: 4, borderColor: '#ffb300', id: 57, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
-  { rect: { x: 500, y: 900, width: 180, height: 180 }, type: 'Free', background: "transparent", borderWidth: 3, borderColor: '#3f51b5', id: 58, path: 'M 50 50 L 130 50 L 130 130 L 50 130 Z' },
-  { rect: { x: 1000, y: 250, width: 150, height: 150 }, type: 'circle', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 59 },
-  { rect: { x: -350, y: 500, width: 240, height: 200 }, type: 'Rect', background: '#fce4ec', borderWidth: 2, borderColor: '#e91e63', id: 60, rotate: 90 },
-  { rect: { x: 150, y: 950, width: 200, height: 200 }, type: 'Image', background: '#e1f5fe', borderWidth: 1, borderColor: '#03a9f4', id: 61, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
-  { rect: { x: 650, y: 100, width: 180, height: 180 }, type: 'circle', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 62 },
-  { rect: { x: -200, y: -250, width: 320, height: 140 }, type: 'Rect', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 63 },
-  { rect: { x: 900, y: -50, width: 100, height: 300 }, type: 'Line', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 64 },
-  { rect: { x: 400, y: 600, width: 250, height: 250 }, type: 'Image', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 65, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'sepia' },
-  { rect: { x: 50, y: -450, width: 180, height: 180 }, type: 'circle', background: '#fff8e1', borderWidth: 4, borderColor: '#ffb300', id: 66 },
-  { rect: { x: 750, y: 550, width: 200, height: 120 }, type: 'Text', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 67, text: 'Sample', textSize: 40, BIUSArr: [] },
-  { rect: { x: -50, y: -100, width: 220, height: 220 }, type: 'Image', background: '#fce4ec', borderWidth: 2, borderColor: '#e91e63', id: 68, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 550, y: 1000, width: 180, height: 180 }, type: 'Free', background: "transparent", borderWidth: 3, borderColor: '#3f51b5', id: 69, path: 'M 60 60 L 120 60 L 120 120 L 60 120 Z' },
-  { rect: { x: 1050, y: 150, width: 150, height: 150 }, type: 'circle', background: '#e1f5fe', borderWidth: 1, borderColor: '#03a9f4', id: 70 },
-  { rect: { x: -300, y: 600, width: 260, height: 180 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 71, rotate: 120 },
-  { rect: { x: 200, y: 1050, width: 200, height: 200 }, type: 'Image', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 72, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
-  { rect: { x: 700, y: 50, width: 180, height: 180 }, type: 'circle', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 73 },
-  { rect: { x: -150, y: -300, width: 340, height: 160 }, type: 'Rect', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 74 },
-  { rect: { x: 950, y: -100, width: 120, height: 280 }, type: 'Line', background: '#fff8e1', borderWidth: 4, borderColor: '#ffb300', id: 75 },
-  { rect: { x: 450, y: 650, width: 250, height: 250 }, type: 'Image', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 76, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
-  { rect: { x: 100, y: -500, width: 180, height: 180 }, type: 'circle', background: '#fce4ec', borderWidth: 2, borderColor: '#e91e63', id: 77 },
-  { rect: { x: 800, y: 500, width: 200, height: 100 }, type: 'Text', background: '#e1f5fe', borderWidth: 1, borderColor: '#03a9f4', id: 78, text: 'Text Here', textSize: 28, BIUSArr: [] },
-  { rect: { x: 0, y: -150, width: 220, height: 220 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 79, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'sepia' },
-  { rect: { x: 600, y: 1100, width: 180, height: 180 }, type: 'Free', background: "transparent", borderWidth: 3, borderColor: '#3f51b5', id: 80, path: 'M 70 70 L 110 70 L 110 110 L 70 110 Z' },
-  { rect: { x: 1100, y: 50, width: 150, height: 150 }, type: 'circle', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 81 },
-  { rect: { x: -250, y: 700, width: 280, height: 200 }, type: 'Rect', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 82, rotate: 135 },
-  { rect: { x: 250, y: 1150, width: 200, height: 200 }, type: 'Image', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 83, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 750, y: 0, width: 180, height: 180 }, type: 'circle', background: '#fff8e1', borderWidth: 4, borderColor: '#ffb300', id: 84 },
-  { rect: { x: -100, y: -350, width: 360, height: 180 }, type: 'Rect', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 85 },
-  { rect: { x: 1000, y: -150, width: 100, height: 300 }, type: 'Line', background: '#fce4ec', borderWidth: 2, borderColor: '#e91e63', id: 86 },
-  { rect: { x: 500, y: 700, width: 250, height: 250 }, type: 'Image', background: '#e1f5fe', borderWidth: 1, borderColor: '#03a9f4', id: 87, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
-  { rect: { x: 150, y: -550, width: 180, height: 180 }, type: 'circle', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 88 },
-  { rect: { x: 850, y: 450, width: 200, height: 120 }, type: 'Text', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 89, text: 'Content', textSize: 32, BIUSArr: [] },
-  { rect: { x: 50, y: -200, width: 220, height: 220 }, type: 'Image', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 90, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
-  { rect: { x: 650, y: 1200, width: 180, height: 180 }, type: 'Free', background: "transparent", borderWidth: 3, borderColor: '#3f51b5', id: 91, path: 'M 80 80 L 100 80 L 100 100 L 80 100 Z' },
-  { rect: { x: 1150, y: -50, width: 150, height: 150 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 92 },
-  { rect: { x: -200, y: 800, width: 300, height: 220 }, type: 'Rect', background: '#fff8e1', borderWidth: 4, borderColor: '#ffb300', id: 93, rotate: 150 },
-  { rect: { x: 300, y: 1250, width: 200, height: 200 }, type: 'Image', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 94, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'sepia' },
-  { rect: { x: 800, y: -50, width: 180, height: 180 }, type: 'circle', background: '#fce4ec', borderWidth: 2, borderColor: '#e91e63', id: 95 },
-  { rect: { x: -50, y: -400, width: 380, height: 200 }, type: 'Rect', background: '#e1f5fe', borderWidth: 1, borderColor: '#03a9f4', id: 96 },
-  { rect: { x: 1050, y: -200, width: 120, height: 280 }, type: 'Line', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 97 },
-  { rect: { x: 550, y: 750, width: 250, height: 250 }, type: 'Image', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 98, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
-  { rect: { x: 200, y: -600, width: 180, height: 180 }, type: 'circle', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 99 },
-  { rect: { x: 900, y: 400, width: 200, height: 100 }, type: 'Text', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 100, text: 'Final Text', textSize: 36, BIUSArr: [] },
-  { rect: { x: 100, y: -250, width: 220, height: 220 }, type: 'Image', background: '#fff8e1', borderWidth: 4, borderColor: '#ffb300', id: 101, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
-  { rect: { x: 700, y: 1300, width: 180, height: 180 }, type: 'Free', background: "transparent", borderWidth: 3, borderColor: '#3f51b5', id: 102, path: 'M 90 90 L 110 90 L 110 110 L 90 110 Z' },
-  { rect: { x: 1200, y: -100, width: 150, height: 150 }, type: 'circle', background: '#ffebee', borderWidth: 3, borderColor: '#f44336', id: 103 },
-  { rect: { x: -150, y: 900, width: 320, height: 240 }, type: 'Rect', background: '#fce4ec', borderWidth: 2, borderColor: '#e91e63', id: 104, rotate: 165 },
-  { rect: { x: 350, y: 1350, width: 200, height: 200 }, type: 'Image', background: '#e1f5fe', borderWidth: 1, borderColor: '#03a9f4', id: 105, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
-  { rect: { x: 850, y: -100, width: 180, height: 180 }, type: 'circle', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 106 },
-  { rect: { x: 0, y: -450, width: 400, height: 220 }, type: 'Rect', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 107 },
-  { rect: { x: 1100, y: -250, width: 100, height: 300 }, type: 'Line', background: '#f3e5f5', borderWidth: 1, borderColor: '#9c27b0', id: 108 },
-  { rect: { x: 600, y: 800, width: 250, height: 250 }, type: 'Image', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 109, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'sepia' }
+
 ]);
 const WHITEBOARDPAGES = ref("whiteboard-pages")
 const isGuide = ref(true);
 const isMinimapVisible = ref(true);
+const imgUrl = ref<HTMLImageElement | undefined>()
 const minimapZoom = ref(0.1);
 const drawer = ref<Drawer>();
 const rectInfoList = ref<Map<string, RectInfo>>(new Map());
@@ -2281,7 +2184,7 @@ const extractMinimap = () => {
     <style>
         body {
             transform: scale(${minimapZoom.value});
-            transform-origin: 0 0;
+            transform-origin:0 0;
             width: ${100 / minimapZoom.value}%;
             height: ${100 / minimapZoom.value}%;
             margin: 0;
@@ -2339,6 +2242,7 @@ const extractMinimap = () => {
     }
   });
 };
+
 
 // 浮动菜单的操作
 const ClickBoardMeun = (item: menuData, x: number, y: number) => {
@@ -2765,7 +2669,7 @@ watch(() => WHITEBOARDPAGES.value, (newValue) => {
 })
 
 // 生命周期
-onMounted(() => {
+onMounted(async () => {
   // 数据读取
   storageIndexDB.getData(WHITEBOARDPAGES.value).then((data) => {
     console.log("读取到的数据:", data);
@@ -2774,7 +2678,6 @@ onMounted(() => {
     //初始化历史系统
     historyStore.initHistory(data || pages.value);
   });
-
   // 初始化事件
   initializeEvents();
 
