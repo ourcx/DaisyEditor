@@ -146,8 +146,20 @@ const members: Record<string, { name: string; icon: string; key: string }[]> = {
   paintBrush: [
     {
       name: "画笔",
-      icon: "pi-paint-brush",
+      icon: "pi-pencil",
       key: "PaintBrush"
+    }
+  ],
+  section:[
+    {
+      name: "切换页",
+      icon: "pi-th-large",
+      key: "section"
+    },
+    {
+      name: "新增页",
+      icon: "pi-plus",
+      key: "addSection"
     }
   ]
 }

@@ -1,4 +1,6 @@
 <template>
+  <ChangePages v-model:visible="dialogVisible" v-model:addVisible="addDialogVisible" @select="handleProjectSelect"
+    @add="handleProjectAdd"></ChangePages>
   <!--      @mousedown="eventHandlers.onMouseDown($event, page)" -->
   <BoardMeun class="z-dialog" id="boardMenu" :visible="doubleClickMenuState.visible"
     :x="doubleClickMenuState.position.x" :y="doubleClickMenuState.position.y" @action="ClickBoardMeun" />
@@ -229,7 +231,7 @@
     <BoardLeft class="z-bar" id="boardLeft" @toolClick="toolClick" />
     <!-- 小地图区域 -->
     <div v-if="isMinimapVisible"
-      class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-96">
+      class="fixed top-4 right-4 bg-white border border-gray-300 p-3 rounded-lg shadow-lg minimap w-64 h-auto">
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm font-medium text-gray-700">导航地图</span>
         <div class="flex space-x-1">
@@ -258,14 +260,15 @@
         </div>
       </div>
 
-      <div class="slider w-full relative border border-gray-200 rounded overflow-hidden bg-white">
-        <iframe class="slider__content w-full h-full border-none" ref="targetIframe" sandbox="allow-same-origin"
+      <div class="slider w-full  relative border border-gray-200 rounded overflow-hidden bg-white">
+        <iframe class="slider__content w-full  border-none" ref="targetIframe" sandbox="allow-same-origin"
           @load="onIframeLoad" />
-
-        <!-- 视口指示器 -->
         <div
           class="absolute border-2 border-red-500 bg-red-200 bg-opacity-20 pointer-events-none transition-all duration-200"
           :style="viewportIndicatorStyle"></div>
+      </div>
+      <div class="mt-2 text-xs text-gray-500 text-center w-full"> 当前页面：
+        {{ WHITEBOARDPAGES }}
       </div>
     </div>
     <!-- 显示小地图的按钮（当隐藏时） -->
@@ -304,6 +307,7 @@ import BoardMeunList from '~/server/BoardMeunList';
 import { defineAsyncComponent } from 'vue';
 import { onUnmounted } from 'vue';
 import { availableShapes, fontWeightOptions } from '~/utils/data';
+import ChangePages from '~/components/Board/ChangePages/ChangePages.vue';
 //交互管理
 const interactionMode = ref<'select' | 'drag' | 'canvasDrag' | 'rotate' | 'resize'>('select');
 const historyStore = useHistoryStore();
@@ -339,8 +343,9 @@ const pages = ref<WhithBoardProps[]>([
   // { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36, BIUSArr: [] },
   { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8, rotate: 45 },
   { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: 9, path: 'M 117 62 L 116 62 L 116 63 L 115 65 L 113 66 L 112 67 L 112 69 L 110 70 L 108 71 L 108 72 L 106 73 L 105 74 L 103 76 L 100 78 L 96 81 L 92 83 L 88 87 L 82 90 L 76 94 L 70 98 L 63 102 L 56 106 L 51 109 L 46 111 L 43 112 L 40 114 L 38 114 L 37 115 L 36 115' },
+
 ]);
-const WHITEBOARDPAGES = "whiteboard-pages"
+const WHITEBOARDPAGES = ref("whiteboard-pages")
 const isGuide = ref(true);
 const isMinimapVisible = ref(true);
 const minimapZoom = ref(0.1);
@@ -359,6 +364,11 @@ const snapConfig = reactive({
     thickness: 1 // 辅助线粗细
   }
 });
+
+//项目管理
+const dialogVisible = ref(false);
+const addDialogVisible = ref(false);
+
 
 // 辅助线状态
 const guideLines = reactive({
@@ -418,7 +428,7 @@ const menuItems = reactive<MenuItem[]>([
     label: '保存',
     icon: 'Save',
     handler: () => {
-      storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+      storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
     },
     key: 'save'
   },
@@ -599,14 +609,14 @@ const floatingMenuStyle = computed<CSSProperties>(() => ({
 const addHistory = () => {
   // 替换原第387行
   historyStore.addHistory(JSON.parse(JSON.stringify(pages.value)));
-  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
 };
 
 const handleUndo = () => {
   const previousState = historyStore.undo();
   if (previousState) {
     pages.value = JSON.parse(JSON.stringify(previousState));
-    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
     getAllDomPoint();
     refreshMinimap();
     highRectList.value.clear();
@@ -617,7 +627,7 @@ const handleRedo = () => {
   const nextState = historyStore.redo();
   if (nextState) {
     pages.value = JSON.parse(JSON.stringify(nextState));
-    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
     getAllDomPoint();
     refreshMinimap();
     highRectList.value.clear();
@@ -746,7 +756,7 @@ const applyTextChange = () => {
 
 // 保存并通知的通用方法
 const saveAndNotify = (summary: string = '', detail: string = '') => {
-  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
   addHistory();
 
   if (detail) {
@@ -1173,7 +1183,7 @@ const handleSizeUpdate = (newScale: { width: number; height: number; scaleX: num
   });
 
   // 保存到数据库
-  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
   addHistory()
 };
 
@@ -1404,7 +1414,7 @@ const eventHandlers = {
       case 'KeyS':
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
-          storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+          storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
           toast.add({ severity: 'success', summary: '保存', detail: '白板内容已保存', life: 2000 });
         }
         break;
@@ -1712,7 +1722,7 @@ const handleElementDragEnd = (event: MouseEvent) => {
   dragState.dragElement = null;
 
   // 保存数据
-  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
   addHistory();
   getAllDomPoint();
 };
@@ -2400,7 +2410,7 @@ const handleTextEditConfirm = (newText: string) => {
   });
 
   // 保存数据
-  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
   addHistory();
 
   // 显示成功提示
@@ -2431,7 +2441,7 @@ const pathDrawn = (path: any, id: number) => {
     return page
   })
   // 保存数据
-  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+  storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
   addHistory();
 }
 
@@ -2616,14 +2626,48 @@ const toolClick = (cur: any, valueKey: any) => {
       const BrushData = { rect: { x: x, y: y, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: Date.now(), path: '' }
       pages.value.push(BrushData as WhithBoardProps)
       break;
+    case 'section':
+      console.log('section', valueKey)
+      if (valueKey.key == 'section') {
+        dialogVisible.value = true
+      } else {
+        addDialogVisible.value = true
+      }
+      break;
   }
 }
 
 
+//项目添加
+const handleProjectSelect = (project: any) => {
+  console.log("选择项目:", project);
+  WHITEBOARDPAGES.value = project.id
+}
+
+const handleProjectAdd = (project: any) => {
+  console.log("添加项目:", project);
+}
+
+
+
+watch(() => WHITEBOARDPAGES.value, (newValue) => {
+  storageIndexDB.getData(newValue).then((data) => {
+    //切换到新的项目
+    pages.value = data;
+    getAllDomPoint();
+    historyStore.initHistory(data || pages.value);
+    //小地图刷新
+    nextTick(() => {
+      extractMinimap();
+    })
+
+  })
+})
+
 // 生命周期
 onMounted(() => {
   // 数据读取
-  storageIndexDB.getData(WHITEBOARDPAGES).then((data) => {
+  storageIndexDB.getData(WHITEBOARDPAGES.value).then((data) => {
     console.log("读取到的数据:", data);
     // pages.value = data;
     getAllDomPoint();
@@ -2644,7 +2688,7 @@ onMounted(() => {
 
   // 添加存储清理
   eventManager.addCleanup(() => {
-    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES);
+    storageIndexDB.saveData(pages.value, WHITEBOARDPAGES.value);
     storageIndexDB.close();
   });
 
