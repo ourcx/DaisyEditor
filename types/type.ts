@@ -56,3 +56,21 @@ export interface MenuData {
   label: string,
   icon: string,
 }
+
+
+// 定义连线的数据结构 (建议放在 types 文件中统一引用)
+export interface Connector {
+  id: string;
+  sourceId: number;
+  sourcePoint: string;
+  targetId: number;
+  targetPoint: string;
+}
+
+export interface ConnectionState {
+  isConnecting: boolean;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+}

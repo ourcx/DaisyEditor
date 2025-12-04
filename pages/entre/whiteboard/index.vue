@@ -1,5 +1,5 @@
 <template>
-  <Cursor color="#32cd79" v-if="snapConfig.guides.enabled"></Cursor>
+
   <ChangePages v-model:visible="dialogVisible" v-model:addVisible="addDialogVisible" @select="handleProjectSelect"
     @add="handleProjectAdd"></ChangePages>
   <!--      @mousedown="eventHandlers.onMouseDown($event, page)" -->
@@ -16,6 +16,7 @@
       @confirm="handleTextEditConfirm" @cancel="handleTextEditCancel" />
     <div class="grid-bg" :style="gridStyle"></div>
     <div ref="canvasRef" class="canvas" :style="canvasStyle">
+      <ConnectorLayer :connectors="connectors" :connection-state="connectionState" :pages="pages" />
       <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" :id="`${page.id}`"
         class="absolute rounded-lg cursor-pointer select-none duration-200 page-item overflow-visible" :style="{
           top: page.rect.y + 'px',
@@ -34,7 +35,8 @@
           :scaleX="page.rect.scaleX" :scaleY="page.rect.scaleY" :color="page.background" :shape="page.type"
           :strokeColor="page.borderColor" :strokeWidth="page.borderWidth" :image="page.image || ''" :text="page.text"
           :textSize="page.textSize" :textWeight="page.textWeight" :filter="page.filter" :path="page.path"
-          @resize-start="handleResizeStart($event, page)" :BIUSArr="page.BIUSArr" @path-drawn="pathDrawn" />
+          @resize-start="handleResizeStart($event, page)" :BIUSArr="page.BIUSArr" @path-drawn="pathDrawn"
+          @connect-start="handleConnectStart" @connect-end="handleConnectEnd" />
 
         <!-- 浮动菜单触发按钮 -->
         <!-- 修改浮动按钮的事件绑定 -->
@@ -272,7 +274,7 @@
         {{ WHITEBOARDPAGES }}
       </div>
       <!-- 在线人数 -->
-      <div class="mt-2 text-xs text-gray-500 text-center w-full"> 🟢 在线人数：{{ onlineCount  }}
+      <div class="mt-2 text-xs text-gray-500 text-center w-full"> 🟢 在线人数：{{ onlineCount }}
       </div>
     </div>
     <!-- 显示小地图的按钮（当隐藏时） -->
@@ -285,6 +287,7 @@
         </path>
       </svg>
     </button>
+    <Cursor color="#32cd79" v-if="snapConfig.guides.enabled"></Cursor>
   </div>
 </template>
 
@@ -295,7 +298,7 @@ definePageMeta({
 import { ref, computed, onMounted, nextTick, reactive, type CSSProperties, watch } from 'vue';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
-import type { AreaPoint, MenuData, MenuItem, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
+import type { AreaPoint, Connector, MenuData, MenuItem, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
 import { useEventManager } from '~/service/DomEvent';
 import BoardItem from '~/components/Board/BoardItem.vue';
 import BoardLeft from '~/components/Board/BoardLeft.vue';
@@ -322,26 +325,38 @@ type selectFilter = {
   code: Filter
 }
 
+//连线
+const connectors = ref<Connector[]>([]);
+const connectionState = reactive({
+  isConnecting: false,
+  sourceId: null as number | null,
+  sourcePoint: '',
+  startX: 0,
+  startY: 0,
+  endX: 0,
+  endY: 0
+});
+
 //协同回调
 const socketCallbacks: SocketCallbacks = {
-  onConnected: () => { 
+  onConnected: () => {
     console.log('已连接xxxxxxxxxxxxx');
   },
-  onDisconnected: () => { 
+  onDisconnected: () => {
     console.log('已断开');
   },
-  onInitialElements: (elements) => { 
+  onInitialElements: (elements) => {
     console.log('初始元素列表:', elements);
   },
-  onElementCreated: (element) => { 
+  onElementCreated: (element) => {
     console.log('收到远程新元素:', element);
     pages.value.push(element);
   },
-  onElementUpdated: (id, data) => { 
+  onElementUpdated: (id, data) => {
     console.log('收到元素更新:', id, data);
     pages.value = pages.value.map(item => item.id === id ? { ...data } : item);
   },
-  onElementDeleted: (elementId) => { 
+  onElementDeleted: (elementId) => {
     console.log('收到元素删除:', elementId);
     pages.value = pages.value.filter(item => item.id !== elementId);
   },
@@ -349,7 +364,7 @@ const socketCallbacks: SocketCallbacks = {
     console.log('收到画笔更新:', elementId);
     pages.value = pages.value.map(item => item.id === elementId ? { ...item, path } : item);
   },
-  onOnlineCount: (count) => { 
+  onOnlineCount: (count) => {
     console.log(`当前在线人数: ${count}`);
     onlineCount.value = count;
   }
@@ -388,7 +403,7 @@ const pages = ref<WhithBoardProps[]>([
   { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: 9, path: 'M 117 62 L 116 62 L 116 63 L 115 65 L 113 66 L 112 67 L 112 69 L 110 70 L 108 71 L 108 72 L 106 73 L 105 74 L 103 76 L 100 78 L 96 81 L 92 83 L 88 87 L 82 90 L 76 94 L 70 98 L 63 102 L 56 106 L 51 109 L 46 111 L 43 112 L 40 114 L 38 114 L 37 115 L 36 115' },
 ]);
 const WHITEBOARDPAGES = ref("whiteboard-pages")
-const { connect, sendCreateElement, sendUpdateElement, isConnected, disconnect, sendDeleteElement } = useWhiteboardSync(1,socketCallbacks);
+const { connect, sendCreateElement, sendUpdateElement, isConnected, disconnect, sendDeleteElement } = useWhiteboardSync(1, socketCallbacks);
 const isGuide = ref(true);
 const isMinimapVisible = ref(true);
 const imgUrl = ref<HTMLImageElement | undefined>()
@@ -1462,6 +1477,9 @@ const eventHandlers = {
 
   // 键盘事件
   handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Alt') {
+      document.body.style.cursor = 'crosshair';
+    }
     switch (e.code) {
       case 'Space':
         if (!e.repeat) {
@@ -1520,6 +1538,9 @@ const eventHandlers = {
   },
 
   handleKeyUp(e: KeyboardEvent) {
+    if (e.key === 'Alt') {
+      document.body.style.cursor = 'default';
+    }
     switch (e.code) {
       case 'Space':
         keyboardState.isSpacePressed = false;
@@ -2183,11 +2204,17 @@ const deletePageItem = () => {
     return !highRectKeys.has(`id-key-${item.id}`);
   });
 
+  const deletedIds = Array.from(highRectList.value).map(k => parseInt(k.replace('id-key-', '')));
+  connectors.value = connectors.value.filter(conn =>
+    !deletedIds.includes(conn.sourceId) && !deletedIds.includes(conn.targetId)
+  );
+
   highRectKeys.forEach((key) => {
     if (rectInfoList.value.has(key)) {
       rectInfoList.value.delete(key);
     }
   });
+
 
   // 添加历史记录
   addHistory();
@@ -2730,6 +2757,70 @@ const handleProjectAdd = (project: any) => {
 
 
 
+//连线处理
+const handleConnectStart = (payload: { event: MouseEvent; direction: string; id: number }) => {
+  const page = pages.value.find(p => p.id === payload.id);
+  if (!page) return;
+
+  connectionState.isConnecting = true;
+  connectionState.sourceId = payload.id;
+  connectionState.sourcePoint = payload.direction;
+
+  // 计算起点
+  const startCoords = getHandleCoordinate(page.rect, payload.direction);
+  connectionState.startX = startCoords.x;
+  connectionState.startY = startCoords.y;
+  connectionState.endX = startCoords.x;
+  connectionState.endY = startCoords.y;
+
+  // 绑定全局事件
+  document.addEventListener('mousemove', handleConnectMove);
+  document.addEventListener('mouseup', handleConnectGlobalUp);
+};
+
+// 5. 拖拽连线
+const handleConnectMove = (e: MouseEvent) => {
+  if (!connectionState.isConnecting) return;
+  // 坐标转换：屏幕坐标 -> 画布坐标
+  connectionState.endX = (e.clientX - transformRef.value.x) / transformRef.value.scale;
+  connectionState.endY = (e.clientY - transformRef.value.y) / transformRef.value.scale;
+};
+
+// 6. 连线结束 (鼠标在目标组件上松开)
+const handleConnectEnd = (payload: { id: number }) => {
+  // 必须正在连线，且目标不是自己
+  if (connectionState.isConnecting && connectionState.sourceId && connectionState.sourceId !== payload.id) {
+
+    // 创建新连接
+    connectors.value.push({
+      id: `conn-${Date.now()}`,
+      sourceId: connectionState.sourceId,
+      sourcePoint: connectionState.sourcePoint,
+      targetId: payload.id,
+      targetPoint: 'center'
+    });
+
+    saveAndNotify('连线', '连接成功');
+  }
+};
+
+// 7. 全局松开 (取消连线或清理状态)
+const handleConnectGlobalUp = () => {
+  connectionState.isConnecting = false;
+  connectionState.sourceId = null;
+  document.removeEventListener('mousemove', handleConnectMove);
+  document.removeEventListener('mouseup', handleConnectGlobalUp);
+};
+
+
+
+
+
+
+
+
+
+
 watch(() => WHITEBOARDPAGES.value, (newValue) => {
   storageIndexDB.getData(newValue).then((data) => {
     //切换到新的项目
@@ -2750,7 +2841,7 @@ onMounted(async () => {
   // 数据读取
   storageIndexDB.getData(WHITEBOARDPAGES.value).then((data) => {
     console.log("读取到的数据:", data);
-    pages.value = data;
+    //pages.value = data;
     getAllDomPoint();
     //初始化历史系统
     historyStore.initHistory(data || pages.value);
