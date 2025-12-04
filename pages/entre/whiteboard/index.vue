@@ -270,6 +270,9 @@
       <div class="mt-2 text-xs text-gray-500 text-center w-full"> 当前页面：
         {{ WHITEBOARDPAGES }}
       </div>
+      <!-- 在线人数 -->
+      <div class="mt-2 text-xs text-gray-500 text-center w-full"> 🟢 在线人数：0
+      </div>
     </div>
     <!-- 显示小地图的按钮（当隐藏时） -->
     <button v-else @click="toggleMinimap"
@@ -288,12 +291,11 @@
 definePageMeta({
   layout: false,
 });
-import { useRouter } from 'vue-router';
 import { ref, computed, onMounted, nextTick, reactive, type CSSProperties, watch } from 'vue';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
 import type { AreaPoint, MenuData, MenuItem, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
-import { useEventManager } from '~/server/DomEvent';
+import { useEventManager } from '~/service/DomEvent';
 import BoardItem from '~/components/Board/BoardItem.vue';
 import BoardLeft from '~/components/Board/BoardLeft.vue';
 import { useHistoryStore } from '~/store/HistoryStore';
@@ -303,12 +305,13 @@ import type { menuData, Shape } from '~/types/components/type';
 import type { filter as Filter } from '~/types/components/type';
 import TextEditOverlay from '~/components/Board/TextEditOverlay/TextEditOverlay.vue';
 import BottomControlBar from '~/components/Board/BottomControlBar/BottomControlBar.vue';
-import BoardMeunList from '~/server/BoardMeunList';
+import BoardMeunList from '~/service/BoardMeunList';
 import { defineAsyncComponent } from 'vue';
 import { onUnmounted } from 'vue';
 import { availableShapes, fontWeightOptions } from '~/utils/data';
 import ChangePages from '~/components/Board/ChangePages/ChangePages.vue';
-import { snapdom } from '@zumer/snapdom';
+import { useWhiteboardSync } from '~/service/useWhiteboardSync/useWhiteboardSync';
+
 //交互管理
 const interactionMode = ref<'select' | 'drag' | 'canvasDrag' | 'rotate' | 'resize'>('select');
 const historyStore = useHistoryStore();
@@ -345,9 +348,9 @@ const pages = ref<WhithBoardProps[]>([
   // { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36, BIUSArr: [] },
   { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8, rotate: 45 },
   { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: 9, path: 'M 117 62 L 116 62 L 116 63 L 115 65 L 113 66 L 112 67 L 112 69 L 110 70 L 108 71 L 108 72 L 106 73 L 105 74 L 103 76 L 100 78 L 96 81 L 92 83 L 88 87 L 82 90 L 76 94 L 70 98 L 63 102 L 56 106 L 51 109 L 46 111 L 43 112 L 40 114 L 38 114 L 37 115 L 36 115' },
-
 ]);
 const WHITEBOARDPAGES = ref("whiteboard-pages")
+const { connect, sendCreateElement, sendUpdateElement, isConnected, disconnect, sendDeleteElement } = useWhiteboardSync(1);
 const isGuide = ref(true);
 const isMinimapVisible = ref(true);
 const imgUrl = ref<HTMLImageElement | undefined>()
@@ -686,11 +689,14 @@ const applyShapeChange = () => {
           if (!updatedPage.textSize) updatedPage.textSize = 16;
           if (!updatedPage.textWeight) updatedPage.textWeight = 'normal';
         }
+        //向服务器通知更新文件
+        sendUpdateElement(currentPageId.value, updatedPage)
 
         return updatedPage;
       }
       return page;
     });
+
 
     saveAndNotify('形状', `图形已更改为${availableShapes.find(s => s.id === selectedShape.value)?.label}`);
     currentSubMenu.value = null;
@@ -702,10 +708,15 @@ const applyColorChange = () => {
   if (currentPageId.value) {
     pages.value = pages.value.map(page => {
       if (page.id === currentPageId.value) {
-        return {
+        const data = {
           ...page,
           background: '#' + colorValue.value
-        };
+        }
+        console.log('applyColorChange', data);
+        //向服务器通知更新文件
+        sendUpdateElement(currentPageId.value, data)
+        return data;
+
       }
       return page;
     });
@@ -721,11 +732,14 @@ const applyBorderChange = () => {
     console.log('applyBorderChange', borderWidth.value, borderColor.value);
     pages.value = pages.value.map(page => {
       if (page.id === currentPageId.value) {
-        return {
+        const data = {
           ...page,
           borderWidth: borderWidth.value,
           borderColor: '#' + borderColor.value.replace('#', '')
-        };
+        }
+        //向服务器通知更新文件
+        sendUpdateElement(currentPageId.value, data)
+        return data;
       }
       return page;
     });
@@ -740,13 +754,15 @@ const applyTextChange = () => {
   if (currentPageId.value) {
     pages.value = pages.value.map(page => {
       if (page.id === currentPageId.value) {
-        return {
+        const data = {
           ...page,
           text: textContent.value,
           textSize: textSize.value,
           textWeight: textWeight.value,
           BIUSArr: Array.isArray(BIUS.value) ? BIUS.value : [] // 确保是数组
-        };
+        }
+        sendUpdateElement(currentPageId.value, data)
+        return data;
       }
       return page;
     });
@@ -786,6 +802,7 @@ const duplicatePage = () => {
           y: originalPage.rect.y + 30
         }
       };
+      sendUpdateElement(currentPageId.value, newPage)
       pages.value.push(newPage);
       saveAndNotify('复制', '页面已复制');
       closeFloatingMenu();
@@ -797,6 +814,7 @@ const duplicatePage = () => {
 const deleteCurrentPage = () => {
   if (currentPageId.value) {
     pages.value = pages.value.filter(page => page.id !== currentPageId.value);
+    sendDeleteElement(currentPageId.value)
     saveAndNotify('删除', '页面已删除');
     closeFloatingMenu();
   }
@@ -908,6 +926,11 @@ const deleteImage = () => {
   if (currentPageId.value) {
     pages.value = pages.value.map(page => {
       if (page.id === currentPageId.value) {
+        const data = {
+          ...page,
+          image: '',
+        }
+        sendUpdateElement(currentPageId.value, data)
         return {
           ...page,
           image: '',
@@ -949,10 +972,12 @@ const handleFilterChange = (newFilter: Filter) => {
   if (currentPageId.value) {
     pages.value = pages.value.map(page => {
       if (page.id === currentPageId.value) {
-        return {
+        const data = {
           ...page,
           filter: newFilter
-        };
+        }
+        sendUpdateElement(currentPageId.value, data)
+        return data;
       }
       return page;
     });
@@ -1169,7 +1194,7 @@ const handleSizeUpdate = (newScale: { width: number; height: number; scaleX: num
       const newX = centerX - newScale.width / 2;
       const newY = centerY - newScale.height / 2;
 
-      return {
+      const data = {
         ...page,
         rect: {
           ...page.rect,
@@ -1181,6 +1206,8 @@ const handleSizeUpdate = (newScale: { width: number; height: number; scaleX: num
           scaleY: newScale.scaleY
         }
       }
+      sendUpdateElement(id, data)
+      return data;
     }
     return page;
   });
@@ -1309,6 +1336,7 @@ const handleMouseMove = (event: MouseEvent) => {
       page.rect.height = Math.max(MIN_SIZE, startHeight + dy); // 高同 s-resize
       break;
   }
+  sendUpdateElement(resizeState.value.activePageId, page)
 };
 
 const handleMouseUp = () => {
@@ -1703,14 +1731,16 @@ const handleElementDragEnd = (event: MouseEvent) => {
     const startPageIndex = dragState.startPages.findIndex(sp => sp.id === page.id);
     if (startPageIndex !== -1) {
       const startPage = dragState.startPages[startPageIndex];
-      return {
+      const data = {
         ...page,
         rect: {
           ...page.rect,
           x: startPage!.x + deltaX,
           y: startPage!.y + deltaY
         }
-      };
+      }
+      sendUpdateElement(page.id, data)
+      return data;
     }
     return page;
   });
@@ -1852,6 +1882,7 @@ const handleRotateMove = (e: MouseEvent) => {
   const pageIndex = pages.value.findIndex(p => p.id === rotateState.dragPageId)
   if (pageIndex !== -1) {
     pages.value[pageIndex]!.rotate = Math.round(rotateState.currentAngle)
+    sendUpdateElement(rotateState.dragPageId, pages.value[pageIndex]!)
   }
 }
 
@@ -2098,6 +2129,9 @@ const pasteElement = () => {
     }
   });
   pages.value.push(...newElements);
+  pages.value.forEach((item) => {
+    sendUpdateElement(item.id, item)
+  })
 
   // 添加历史记录
   addHistory();
@@ -2142,6 +2176,7 @@ const refreshMinimap = () => {
 
 const toggleMinimap = () => {
   isMinimapVisible.value = !isMinimapVisible.value;
+  extractMinimap();
 };
 
 const navigateToMinimapPosition = (minimapX: number, minimapY: number) => {
@@ -2280,6 +2315,7 @@ const ClickBoardMeun = (item: menuData, x: number, y: number) => {
   }
   if (mode) {
     pages.value.push(mode)
+    sendCreateElement(mode)
     //提示和保存
     saveAndNotify()
     doubleClickMenuState.visible = false
@@ -2405,10 +2441,9 @@ const handleTextEditConfirm = (newText: string) => {
   // 更新页面数据
   pages.value = pages.value.map(page => {
     if (page.id === textEditState.editingPageId) {
-      return {
-        ...page,
-        text: finalText
-      };
+      const data = { ...page, text: finalText };
+      sendUpdateElement(page.id, data);
+      return data;
     }
     return page;
   });
@@ -2439,8 +2474,10 @@ const pathDrawn = (path: any, id: number) => {
   console.log(path, "xxxxxxxxxxxxxxxxx")
   pages.value = pages.value.map(page => {
     if (page.id === id) {
-      const pathStr = page.path + path
-      return { ...page, path: pathStr }
+      const pathStr = page.path + path;
+      const data = { ...page, path: pathStr };
+      sendUpdateElement(page.id, data);
+      return data;
     }
     return page
   })
@@ -2629,6 +2666,7 @@ const toolClick = (cur: any, valueKey: any) => {
       //画布
       const BrushData = { rect: { x: x, y: y, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: Date.now(), path: '' }
       pages.value.push(BrushData as WhithBoardProps)
+      sendCreateElement(BrushData as WhithBoardProps)
       break;
     case 'section':
       console.log('section', valueKey)
@@ -2670,6 +2708,7 @@ watch(() => WHITEBOARDPAGES.value, (newValue) => {
 
 // 生命周期
 onMounted(async () => {
+  connect()
   // 数据读取
   storageIndexDB.getData(WHITEBOARDPAGES.value).then((data) => {
     console.log("读取到的数据:", data);
@@ -2700,6 +2739,7 @@ onMounted(async () => {
 // 组件卸载时自动清理所有事件
 onUnmounted(() => {
   eventManager.cleanupAll();
+  disconnect()
 });
 </script>
 
