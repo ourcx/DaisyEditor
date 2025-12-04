@@ -53,6 +53,7 @@
     "dayjs": "^1.11.18",
     "draggable-polyfill": "^1.2.4",
     "feiui-vue": "^0.0.2",
+    "gsap": "^3.13.0",
     "html2canvas": "^1.4.1",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",

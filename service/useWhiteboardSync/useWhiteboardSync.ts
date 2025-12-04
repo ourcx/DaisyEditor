@@ -2,8 +2,19 @@
 import { io, Socket } from 'socket.io-client';
 import type { WhithBoardItemProps } from '~/types/type';
 
+export interface SocketCallbacks {
+  onConnected?: () => void;
+  onDisconnected?: () => void;
+  onInitialElements?: (elements: any[]) => void;
+  onElementCreated?: (element: WhithBoardItemProps) => void;
+  onElementUpdated?: (id: number, data: any) => void;
+  onElementDeleted?: (elementId: number) => void;
+  onDrawUpdated?: (elementId: number, path: string) => void;
+  onOnlineCount?: (count: number) => void;
+}
 
-export const useWhiteboardSync = (pageId: number = 1) => { // 假设我们使用页面ID为1的页面
+
+export const useWhiteboardSync = (pageId: number = 1,callbacks: SocketCallbacks = {}) => { // 假设我们使用页面ID为1的页面
   const socket = ref<Socket | null>(null);
   const isConnected = ref(false);
 
@@ -13,43 +24,44 @@ export const useWhiteboardSync = (pageId: number = 1) => { // 假设我们使用
 
     socket.value.on('connect', () => {
       isConnected.value = true;
-      console.log('已连接到协同服务器');
+      callbacks.onConnected?.();
       socket.value?.emit('join_page', { pageId });
     });
 
     socket.value.on('initial_elements', ({ elements }) => {
       console.log('收到初始元素列表:', elements);
-      // 这里触发一个事件，让父组件用这些元素更新画布
+      callbacks.onInitialElements?.(elements);
     });
 
     socket.value.on('element_created', (newElement: WhithBoardItemProps) => {
       console.log('收到远程新元素:', newElement);
-      // 触发事件，让父组件添加此元素到画布
+      callbacks.onElementCreated?.(newElement);
     });
 
     socket.value.on('element_updated', ({ id, data }) => {
       console.log('收到元素更新:', id, data);
-      // 触发事件，让父组件更新对应元素
+      callbacks.onElementUpdated?.(id, data);
     });
 
     socket.value.on('element_deleted', (elementId: number) => {
       console.log('收到元素删除:', elementId);
-      // 触发事件，让父组件删除对应元素
+      callbacks.onElementDeleted?.(elementId);
     });
 
     socket.value.on('draw_updated', ({ elementId, path }) => {
       console.log('收到画笔更新:', elementId);
-      // 触发事件，实时更新对应元素的路径
+      callbacks.onDrawUpdated?.(elementId, path);
     });
 
     socket.value.on('disconnect', () => {
       isConnected.value = false;
-      console.log('已断开协同服务器连接');
+      callbacks.onDisconnected?.();
     });
 
     socket.value.on('online_count', (count) => {
-        console.log(`当前在线人数: ${count}`);
-    })
+      console.log(`当前在线人数: ${count}`);
+      callbacks.onOnlineCount?.(count);
+    });
   };
 
   // 向服务器发送新建元素

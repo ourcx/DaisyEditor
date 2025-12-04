@@ -24,7 +24,7 @@ const io = new Server(httpServer, {
 });
 
 io.on('connection', (socket) => {
-    console.log('🟢 匿名用户连接:', socket.id);
+    console.log('匿名用户连接:', socket.id);
     count++;
     let currentPageId: number | null = null;
 
@@ -60,7 +60,7 @@ io.on('connection', (socket) => {
             //  添加服务器生成的ID
             const elementToBroadcast = {
                 ...elementData,
-                id: insertId,
+                // id: insertId,
             };
 
             // 广播给同房间的其他所有用户（除了发送者自己）
@@ -117,7 +117,7 @@ io.on('connection', (socket) => {
 
     // 用户断开连接
     socket.on('disconnect', () => {
-        console.log('🔴 用户断开:', socket.id);
+        console.log('用户断开:', socket.id);
         count--;
     });
 
@@ -132,5 +132,5 @@ io.on('connection', (socket) => {
 
 const PORT = 3002;
 httpServer.listen(PORT, () => {
-    console.log(`🚀 协同WebSocket服务器运行在: http://localhost:${PORT}`);
+    console.log(`协同WebSocket服务器运行在: http://localhost:${PORT}`);
 });
