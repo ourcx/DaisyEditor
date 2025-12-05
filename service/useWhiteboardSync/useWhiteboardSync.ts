@@ -1,4 +1,5 @@
 // composables/useWhiteboardSync.ts
+import { isString } from 'lodash-es';
 import { io, Socket } from 'socket.io-client';
 import type { WhithBoardItemProps } from '~/types/type';
 
@@ -12,10 +13,12 @@ export interface SocketCallbacks {
   onDrawUpdated?: (elementId: number, path: string) => void;
   onOnlineCount?: (count: number) => void;
   onMouseMove?: (item: any) => void;
+  switchProject?: (pageId: number | string) => void;
+  onMouseLeave?: (id: string) => void; // 修改：接收用户ID
 }
 
 
-export const useWhiteboardSync = (pageId: number = 1, callbacks: SocketCallbacks = {}) => { // 假设我们使用页面ID为1的页面
+export const useWhiteboardSync = (pageId: number | string = 1, callbacks: SocketCallbacks = {}) => { // 假设我们使用页面ID为1的页面
   const socket = ref<Socket | null>(null);
   const isConnected = ref(false);
 
@@ -26,7 +29,7 @@ export const useWhiteboardSync = (pageId: number = 1, callbacks: SocketCallbacks
     socket.value.on('connect', () => {
       isConnected.value = true;
       callbacks.onConnected?.();
-      socket.value?.emit('join_page', { pageId });
+      socket.value?.emit('join_page', { pageId: isString(pageId) ? stringToNumberHash(pageId) : pageId });
     });
 
     socket.value.on('initial_elements', ({ elements }) => {
@@ -63,9 +66,14 @@ export const useWhiteboardSync = (pageId: number = 1, callbacks: SocketCallbacks
       console.log(`当前在线人数: ${count}`);
       callbacks.onOnlineCount?.(count);
     });
+
     socket.value.on("mouse_move", (item) => {
       callbacks.onMouseMove?.(item);
-    })
+    });
+
+    socket.value.on("mouse_leave", ({ id }) => { // 修改：接收包含id的对象
+      callbacks.onMouseLeave?.(id);
+    });
   };
 
   // 向服务器发送新建元素
@@ -93,10 +101,33 @@ export const useWhiteboardSync = (pageId: number = 1, callbacks: SocketCallbacks
     socket.value.emit('draw_update', { elementId, path });
   };
 
-  //发送自己的鼠标位置
+  // 发送自己的鼠标位置
   const sendCursorElement = (x: number, y: number, user: string) => {
     if (!socket.value?.connected) return;
     socket.value.emit('mouse_move', { x, y, user });
+  }
+
+
+  function stringToNumberHash(str: string): number {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 33) ^ str.charCodeAt(i);
+    }
+    return hash >>> 0; // 确保是正整数
+  }
+
+  // 切换项目
+  const switchProject = (pageId: number | string) => {
+    // 先发送鼠标离开事件
+    socket.value?.emit('mouse_leave');
+
+    // 然后切换项目
+    socket.value?.emit('switch_project', isString(pageId) ? stringToNumberHash(pageId) : pageId);
+
+    // //发送鼠标事件
+    // socket.value?.emit('mouse_move', { x: 0, y: 0, user: '' });
+
+    console.log('切换项目:', pageId);
   }
 
   const disconnect = () => {
@@ -115,6 +146,7 @@ export const useWhiteboardSync = (pageId: number = 1, callbacks: SocketCallbacks
     sendUpdateElement,
     sendDeleteElement,
     sendDrawUpdate,
-    sendCursorElement
+    sendCursorElement,
+    switchProject
   };
 };

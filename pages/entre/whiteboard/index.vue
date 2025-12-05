@@ -379,6 +379,11 @@ const socketCallbacks: SocketCallbacks = {
     } else {
       mouseCursor.value.push(item)
     }
+  },
+  onMouseLeave:(user:string)=>{
+    console.log(user)
+    console.log('鼠标离开:', mouseCursor.value);
+    mouseCursor.value = mouseCursor.value.filter(users => users.user !== user)
   }
 }
 
@@ -423,7 +428,7 @@ const pages = ref<WhithBoardProps[]>([
   { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: 9, path: 'M 117 62 L 116 62 L 116 63 L 115 65 L 113 66 L 112 67 L 112 69 L 110 70 L 108 71 L 108 72 L 106 73 L 105 74 L 103 76 L 100 78 L 96 81 L 92 83 L 88 87 L 82 90 L 76 94 L 70 98 L 63 102 L 56 106 L 51 109 L 46 111 L 43 112 L 40 114 L 38 114 L 37 115 L 36 115' },
 ]);
 const WHITEBOARDPAGES = ref("whiteboard-pages")
-const { connect, sendCreateElement, sendUpdateElement, isConnected, disconnect, sendDeleteElement, sendCursorElement } = useWhiteboardSync(1, socketCallbacks);
+const { connect, sendCreateElement, sendUpdateElement, isConnected, disconnect, sendDeleteElement, sendCursorElement, switchProject } = useWhiteboardSync(WHITEBOARDPAGES.value, socketCallbacks);
 const isGuide = ref(true);
 const isMinimapVisible = ref(true);
 const imgUrl = ref<HTMLImageElement | undefined>()
@@ -2094,9 +2099,7 @@ const initializeEvents = () => {
       element: document,
       type: 'mousemove',
       handler: (e) => {
-        setTimeout(() => {
           sendCursorElement(e.clientX, e.clientY, "测试用户")
-        }, 100)
       }
     }
   ])
@@ -2780,6 +2783,7 @@ const toolClick = (cur: any, valueKey: any) => {
 const handleProjectSelect = (project: any) => {
   console.log("选择项目:", project);
   WHITEBOARDPAGES.value = project.id
+  switchProject(WHITEBOARDPAGES.value)
 }
 
 const handleProjectAdd = (project: any) => {
