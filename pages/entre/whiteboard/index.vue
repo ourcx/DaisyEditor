@@ -1,5 +1,6 @@
 <template>
-
+  <!-- 协同创作的鼠标 -->
+  <OtherUser v-for="(item, index) in mouseCursor" :key="item.id" :x="item.x" :y="item.y" :user="item.user" />
   <ChangePages v-model:visible="dialogVisible" v-model:addVisible="addDialogVisible" @select="handleProjectSelect"
     @add="handleProjectAdd"></ChangePages>
   <!--      @mousedown="eventHandlers.onMouseDown($event, page)" -->
@@ -316,6 +317,8 @@ import { availableShapes, fontWeightOptions } from '~/utils/data';
 import ChangePages from '~/components/Board/ChangePages/ChangePages.vue';
 import { useWhiteboardSync, type SocketCallbacks } from '~/service/useWhiteboardSync/useWhiteboardSync';
 import Cursor from '~/components/Cursor/Cursor.vue';
+import OtherUser from '~/components/OtherUser/OtherUser.vue';
+import { throttle } from 'lodash-es';
 //交互管理
 const interactionMode = ref<'select' | 'drag' | 'canvasDrag' | 'rotate' | 'resize'>('select');
 const historyStore = useHistoryStore();
@@ -367,11 +370,28 @@ const socketCallbacks: SocketCallbacks = {
   onOnlineCount: (count) => {
     console.log(`当前在线人数: ${count}`);
     onlineCount.value = count;
+  },
+  onMouseMove: (item: cursorUser) => {
+    //先找到mouseCursor有没这个属性，没有就增加
+    let i = mouseCursor.value.find(user => user.user === item.user)
+    if (i) {
+      mouseCursor.value = mouseCursor.value.map(user => user.id === item.id ? item : user)
+    } else {
+      mouseCursor.value.push(item)
+    }
   }
 }
 
+interface cursorUser {
+  x?: number
+  y?: number
+  user?: string
+  id?: string
+}
 
 
+//用户鼠标位置更新
+const mouseCursor = ref<cursorUser[]>([])
 const onlineCount = ref(0);
 // DOM 引用
 const containerRef = ref<HTMLElement | null>(null);
@@ -403,7 +423,7 @@ const pages = ref<WhithBoardProps[]>([
   { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: 9, path: 'M 117 62 L 116 62 L 116 63 L 115 65 L 113 66 L 112 67 L 112 69 L 110 70 L 108 71 L 108 72 L 106 73 L 105 74 L 103 76 L 100 78 L 96 81 L 92 83 L 88 87 L 82 90 L 76 94 L 70 98 L 63 102 L 56 106 L 51 109 L 46 111 L 43 112 L 40 114 L 38 114 L 37 115 L 36 115' },
 ]);
 const WHITEBOARDPAGES = ref("whiteboard-pages")
-const { connect, sendCreateElement, sendUpdateElement, isConnected, disconnect, sendDeleteElement } = useWhiteboardSync(1, socketCallbacks);
+const { connect, sendCreateElement, sendUpdateElement, isConnected, disconnect, sendDeleteElement, sendCursorElement } = useWhiteboardSync(1, socketCallbacks);
 const isGuide = ref(true);
 const isMinimapVisible = ref(true);
 const imgUrl = ref<HTMLImageElement | undefined>()
@@ -2068,7 +2088,18 @@ const initializeEvents = () => {
     }
   ])
 
-
+  //监听鼠标位置发送到sendCursorElement
+  eventManager.addEventListeners([
+    {
+      element: document,
+      type: 'mousemove',
+      handler: (e) => {
+        setTimeout(() => {
+          sendCursorElement(e.clientX, e.clientY, "测试用户")
+        }, 100)
+      }
+    }
+  ])
 };
 
 // 工具函数

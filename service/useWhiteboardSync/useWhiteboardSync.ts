@@ -11,10 +11,11 @@ export interface SocketCallbacks {
   onElementDeleted?: (elementId: number) => void;
   onDrawUpdated?: (elementId: number, path: string) => void;
   onOnlineCount?: (count: number) => void;
+  onMouseMove?: (item: any) => void;
 }
 
 
-export const useWhiteboardSync = (pageId: number = 1,callbacks: SocketCallbacks = {}) => { // 假设我们使用页面ID为1的页面
+export const useWhiteboardSync = (pageId: number = 1, callbacks: SocketCallbacks = {}) => { // 假设我们使用页面ID为1的页面
   const socket = ref<Socket | null>(null);
   const isConnected = ref(false);
 
@@ -62,6 +63,9 @@ export const useWhiteboardSync = (pageId: number = 1,callbacks: SocketCallbacks 
       console.log(`当前在线人数: ${count}`);
       callbacks.onOnlineCount?.(count);
     });
+    socket.value.on("mouse_move", (item) => {
+      callbacks.onMouseMove?.(item);
+    })
   };
 
   // 向服务器发送新建元素
@@ -89,6 +93,12 @@ export const useWhiteboardSync = (pageId: number = 1,callbacks: SocketCallbacks 
     socket.value.emit('draw_update', { elementId, path });
   };
 
+  //发送自己的鼠标位置
+  const sendCursorElement = (x: number, y: number, user: string) => {
+    if (!socket.value?.connected) return;
+    socket.value.emit('mouse_move', { x, y, user });
+  }
+
   const disconnect = () => {
     if (socket.value) {
       socket.value.disconnect();
@@ -104,6 +114,7 @@ export const useWhiteboardSync = (pageId: number = 1,callbacks: SocketCallbacks 
     sendCreateElement,
     sendUpdateElement,
     sendDeleteElement,
-    sendDrawUpdate
+    sendDrawUpdate,
+    sendCursorElement
   };
 };

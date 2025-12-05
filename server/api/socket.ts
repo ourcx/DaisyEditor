@@ -121,6 +121,11 @@ io.on('connection', (socket) => {
         count--;
     });
 
+    //用户发送自己鼠标的位置
+    socket.on('mouse_move', ({ x, y, user }) => {
+        socket.broadcast.emit('mouse_move', { x, y, user, id:socket.id });
+    })
+
     //定时发送在线人数
     setInterval(() => {
         io.emit('online_count', count);
