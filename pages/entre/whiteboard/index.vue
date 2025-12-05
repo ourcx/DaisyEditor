@@ -15,9 +15,10 @@
       :color="textEditState.color" :font-style="textEditState.fontStyle" :text-decoration="textEditState.textDecoration"
       :width="textEditState.width" :height="textEditState.height" placeholder="请输入文本内容..."
       @confirm="handleTextEditConfirm" @cancel="handleTextEditCancel" />
+    <ConnectorLayer :connectors="connectors" :connection-state="connectionState" :pages="pages" />
     <div class="grid-bg" :style="gridStyle"></div>
     <div ref="canvasRef" class="canvas" :style="canvasStyle">
-      <ConnectorLayer :connectors="connectors" :connection-state="connectionState" :pages="pages" />
+
       <div v-for="(page, index) in pages" :key="index" :data-id="`id-key-${page.id}`" :id="`${page.id}`"
         class="absolute rounded-lg cursor-pointer select-none duration-200 page-item overflow-visible" :style="{
           top: page.rect.y + 'px',
@@ -318,7 +319,8 @@ import ChangePages from '~/components/Board/ChangePages/ChangePages.vue';
 import { useWhiteboardSync, type SocketCallbacks } from '~/service/useWhiteboardSync/useWhiteboardSync';
 import Cursor from '~/components/Cursor/Cursor.vue';
 import OtherUser from '~/components/OtherUser/OtherUser.vue';
-import { throttle } from 'lodash-es';
+import ConnectorLayer from '~/components/ConnectorLayer/ConnectorLayer.vue';
+import { getHandleCoordinate } from '../../../utils/getHandleCoordinate';
 //交互管理
 const interactionMode = ref<'select' | 'drag' | 'canvasDrag' | 'rotate' | 'resize'>('select');
 const historyStore = useHistoryStore();
@@ -380,7 +382,7 @@ const socketCallbacks: SocketCallbacks = {
       mouseCursor.value.push(item)
     }
   },
-  onMouseLeave:(user:string)=>{
+  onMouseLeave: (user: string) => {
     console.log(user)
     console.log('鼠标离开:', mouseCursor.value);
     mouseCursor.value = mouseCursor.value.filter(users => users.user !== user)
@@ -2099,7 +2101,7 @@ const initializeEvents = () => {
       element: document,
       type: 'mousemove',
       handler: (e) => {
-          sendCursorElement(e.clientX, e.clientY, "测试用户")
+        sendCursorElement(e.clientX, e.clientY, "测试用户")
       }
     }
   ])
@@ -3105,6 +3107,11 @@ button:disabled {
   border-radius: 1px;
   transform: translateY(-50%);
 }
+
+.page-item {
+  will-change: transform, top, left; 
+}
+
 
 .shape-label {
   font-size: 10px;
