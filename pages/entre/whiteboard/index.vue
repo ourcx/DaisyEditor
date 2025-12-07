@@ -334,7 +334,15 @@ type selectFilter = {
 }
 
 //连线
-const connectors = ref<Connector[]>([]);
+const connectors = computed(() => {
+  const allConnectors: Connector[] = [];
+  pages.value.forEach(page => {
+    if (page.connections?.connectors) {
+      allConnectors.push(...page.connections.connectors);
+    }
+  });
+  return allConnectors;
+});
 const connectionState = reactive({
   isConnecting: false,
   sourceId: null as number | null,
@@ -344,6 +352,7 @@ const connectionState = reactive({
   endX: 0,
   endY: 0
 });
+
 
 //协同回调
 const socketCallbacks: SocketCallbacks = {
@@ -422,15 +431,63 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 // 状态管理
 const transformRef = ref({ x: 0, y: 0, scale: 1 });
 const pages = ref<WhithBoardProps[]>([
-  { rect: { x: 1000, y: 600, width: 200, height: 200 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 1, },
-  { rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 2 },
-  { rect: { x: -300, y: 400, width: 200, height: 200 }, type: 'Line', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 3 },
-  { rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur' },
-  { rect: { x: 800, y: 800, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 5, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale' },
-  { rect: { x: 1000, y: 200, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 6, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert' },
+  {
+    rect: { x: 1000, y: 600, width: 200, height: 200 }, type: 'circle', background: '#e3f2fd', borderWidth: 2, borderColor: '#2196f3', id: 1, connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  },
+  {
+    rect: { x: 500, y: 200, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 2, connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  },
+  {
+    rect: { x: -300, y: 400, width: 200, height: 200 }, type: 'Line', background: '#e8f5e9', borderWidth: 2, borderColor: '#4caf50', id: 3, connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  },
+  {
+    rect: { x: 1000, y: 400, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 4, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'blur', connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  },
+  {
+    rect: { x: 800, y: 800, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 5, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'grayscale', connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  },
+  {
+    rect: { x: 1000, y: 200, width: 200, height: 200 }, type: 'Image', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 6, image: 'https://s2.loli.net/2025/11/15/fQ5bv8o2cxuC9da.jpg', filter: 'invert', connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  },
   // { rect: { x: 500, y: 400, width: 200, height: 100 }, type: 'Text', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 7, text: 'Hello World', textSize: 36, BIUSArr: [] },
-  { rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8, rotate: 45 },
-  { rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: 9, path: 'M 117 62 L 116 62 L 116 63 L 115 65 L 113 66 L 112 67 L 112 69 L 110 70 L 108 71 L 108 72 L 106 73 L 105 74 L 103 76 L 100 78 L 96 81 L 92 83 L 88 87 L 82 90 L 76 94 L 70 98 L 63 102 L 56 106 L 51 109 L 46 111 L 43 112 L 40 114 L 38 114 L 37 115 L 36 115' },
+  {
+    rect: { x: 800, y: 400, width: 200, height: 200 }, type: 'Rect', background: '#fff3e0', borderWidth: 2, borderColor: '#ff9800', id: 8, rotate: 45, connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  },
+  {
+    rect: { x: 0, y: 0, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: 9, path: 'M 117 62 L 116 62 L 116 63 L 115 65 L 113 66 L 112 67 L 112 69 L 110 70 L 108 71 L 108 72 L 106 73 L 105 74 L 103 76 L 100 78 L 96 81 L 92 83 L 88 87 L 82 90 L 76 94 L 70 98 L 63 102 L 56 106 L 51 109 L 46 111 L 43 112 L 40 114 L 38 114 L 37 115 L 36 115', connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  },
 ]);
 const WHITEBOARDPAGES = ref("whiteboard-pages")
 const { connect, sendCreateElement, sendUpdateElement, isConnected, disconnect, sendDeleteElement, sendCursorElement, switchProject } = useWhiteboardSync(WHITEBOARDPAGES.value, socketCallbacks);
@@ -871,6 +928,7 @@ const saveAndNotify = (summary: string = '', detail: string = '') => {
   }
 };
 
+
 // 复制页面
 const duplicatePage = () => {
   if (currentPageId.value) {
@@ -883,14 +941,38 @@ const duplicatePage = () => {
           ...originalPage.rect,
           x: originalPage.rect.x + 30,
           y: originalPage.rect.y + 30
+        },
+        // 可以选择是否复制连接关系
+        connections: {
+          incoming: [],
+          outgoing: [],
+          connectors: []
         }
       };
-      sendUpdateElement(currentPageId.value, newPage)
+      
       pages.value.push(newPage);
+      sendCreateElement(newPage);
       saveAndNotify('复制', '页面已复制');
       closeFloatingMenu();
     }
   }
+};
+
+// 添加一个辅助函数来获取特定页面的所有连接器
+const getPageConnectors = (pageId: number) => {
+  const page = pages.value.find(p => p.id === pageId);
+  return page?.connections?.connectors || [];
+};
+
+// 添加一个辅助函数来获取连接到特定页面的所有页面
+const getConnectedPages = (pageId: number) => {
+  const page = pages.value.find(p => p.id === pageId);
+  const connectedPageIds = [
+    ...(page?.connections?.incoming || []),
+    ...(page?.connections?.outgoing || [])
+  ];
+  
+  return pages.value.filter(p => connectedPageIds.includes(p.id));
 };
 
 // 删除当前页面
@@ -2250,22 +2332,41 @@ const pasteElement = () => {
 const deletePageItem = () => {
   const highRectKeys = new Set(Array.from(highRectList.value.keys()));
   console.log(highRectKeys, "删除");
+  
+  const deletedIds = Array.from(highRectList.value).map(k => parseInt(k.replace('id-key-', '')));
+  
+  // 先清理所有相关连接
+  pages.value = pages.value.map(page => {
+    // 如果页面被删除，直接返回
+    if (deletedIds.includes(page.id)) return page;
+    
+    // 清理该页面上的相关连接
+    const updatedConnections = {
+      incoming: (page.connections?.incoming || []).filter(id => !deletedIds.includes(id)),
+      outgoing: (page.connections?.outgoing || []).filter(id => !deletedIds.includes(id)),
+      connectors: (page.connections?.connectors || []).filter(conn => 
+        !deletedIds.includes(conn.sourceId) && !deletedIds.includes(conn.targetId)
+      )
+    };
+    
+    return {
+      ...page,
+      connections: updatedConnections
+    };
+  });
+  
+  // 然后删除页面本身
   pages.value = pages.value.filter((item) => {
     return !highRectKeys.has(`id-key-${item.id}`);
   });
-
-  const deletedIds = Array.from(highRectList.value).map(k => parseInt(k.replace('id-key-', '')));
-  connectors.value = connectors.value.filter(conn =>
-    !deletedIds.includes(conn.sourceId) && !deletedIds.includes(conn.targetId)
-  );
-
+  
+  // 清理 rectInfoList
   highRectKeys.forEach((key) => {
     if (rectInfoList.value.has(key)) {
       rectInfoList.value.delete(key);
     }
   });
-
-
+  
   // 添加历史记录
   addHistory();
 };
@@ -2820,7 +2921,7 @@ const handleProjectAdd = (project: any) => {
 const printPDF = async () => {
   try {
     console.log('开始高质量PDF导出...');
-    
+
     // 隐藏不需要的UI元素
     const elementsToHide = [
       '.minimap',
@@ -2829,9 +2930,9 @@ const printPDF = async () => {
       '.global-floating-menu',
       '.floating-trigger'
     ];
-    
+
     const originalStyles = new Map();
-    
+
     elementsToHide.forEach(selector => {
       const elements = document.querySelectorAll(selector);
       elements.forEach((el, index) => {
@@ -2839,21 +2940,21 @@ const printPDF = async () => {
         (el as HTMLElement).style.display = 'none';
       });
     });
-    
+
     // 显示所有页面内容
     const pageItems = document.querySelectorAll('.page-item');
     pageItems.forEach(el => {
       (el as HTMLElement).style.opacity = '1';
       (el as HTMLElement).style.visibility = 'visible';
     });
-    
+
     // 获取白板内容区域
     const contentElement = canvasRef.value || containerRef.value;
     if (!contentElement) throw new Error('未找到内容区域');
-    
+
     // 等待DOM更新
     await nextTick();
-    
+
     // 计算内容边界
     const bounds = {
       top: Infinity,
@@ -2861,17 +2962,17 @@ const printPDF = async () => {
       right: -Infinity,
       bottom: -Infinity
     };
-    
+
     pages.value.forEach(page => {
       bounds.left = Math.min(bounds.left, page.rect.x);
       bounds.top = Math.min(bounds.top, page.rect.y);
       bounds.right = Math.max(bounds.right, page.rect.x + page.rect.width);
       bounds.bottom = Math.max(bounds.bottom, page.rect.y + page.rect.height);
     });
-    
+
     const width = bounds.right - bounds.left + 100;
     const height = bounds.bottom - bounds.top + 100;
-    
+
     // 截图
     const canvas = await html2canvas(contentElement as HTMLElement, {
       scale: 3, // 超高分辨率
@@ -2887,31 +2988,31 @@ const printPDF = async () => {
       imageTimeout: 0,
       removeContainer: true
     });
-    
+
     // 创建PDF
     const pdf = new jsPDF({
       orientation: width > height ? 'landscape' : 'portrait',
       unit: 'mm',
       format: 'a4'
     });
-    
+
     // 计算PDF页面尺寸（mm）
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
-    
+
     // 计算图片在PDF中的尺寸（保持比例）
     const scale = Math.min(
       (pdfWidth - 20) / canvas.width * 25.4 / 96, // 考虑DPI转换
       (pdfHeight - 20) / canvas.height * 25.4 / 96
     );
-    
+
     const imgWidth = canvas.width * scale;
     const imgHeight = canvas.height * scale;
-    
+
     // 居中显示
     const x = (pdfWidth - imgWidth) / 2;
     const y = (pdfHeight - imgHeight) / 2;
-    
+
     // 添加图片
     pdf.addImage(
       canvas.toDataURL('image/png', 1.0),
@@ -2921,7 +3022,7 @@ const printPDF = async () => {
       imgWidth,
       imgHeight
     );
-    
+
     // 添加水印
     pdf.setFontSize(10);
     pdf.setTextColor(150, 150, 150);
@@ -2930,10 +3031,10 @@ const printPDF = async () => {
       pdfWidth - 100,
       pdfHeight - 10
     );
-    
+
     // 保存文件
     pdf.save(`whiteboard_export_${new Date().getTime()}.pdf`);
-    
+
     // 恢复UI元素
     originalStyles.forEach((style, key) => {
       const [selector, index] = key.split('-');
@@ -2942,7 +3043,7 @@ const printPDF = async () => {
         (elements[parseInt(index)] as HTMLElement).style.display = style;
       }
     });
-    
+
     // 显示成功消息
     toast.add({
       severity: "success",
@@ -2950,10 +3051,10 @@ const printPDF = async () => {
       detail: "PDF文件已生成并下载",
       life: 3000,
     });
-    
+
   } catch (error) {
     console.error('PDF导出失败:', error);
-    
+
     toast.add({
       severity: "error",
       summary: "导出失败",
@@ -2995,16 +3096,53 @@ const handleConnectMove = (e: MouseEvent) => {
 const handleConnectEnd = (payload: { id: number }) => {
   // 必须正在连线，且目标不是自己
   if (connectionState.isConnecting && connectionState.sourceId && connectionState.sourceId !== payload.id) {
-
-    // 创建新连接
-    connectors.value.push({
+    
+    // 获取源元素和目标元素
+    const sourcePage = pages.value.find(p => p.id === connectionState.sourceId);
+    const targetPage = pages.value.find(p => p.id === payload.id);
+    
+    if (!sourcePage || !targetPage) return;
+    
+    // 创建新连接器
+    const newConnector: Connector = {
       id: `conn-${Date.now()}`,
       sourceId: connectionState.sourceId,
       sourcePoint: connectionState.sourcePoint,
       targetId: payload.id,
       targetPoint: 'center'
+    };
+    
+    // 更新源元素的连接信息
+    const updatedSourcePage = {
+      ...sourcePage,
+      connections: {
+        incoming: sourcePage.connections?.incoming || [],
+        outgoing: [...(sourcePage.connections?.outgoing || []), payload.id],
+        connectors: [...(sourcePage.connections?.connectors || []), newConnector]
+      }
+    };
+    
+    // 更新目标元素的连接信息
+    const updatedTargetPage = {
+      ...targetPage,
+      connections: {
+        incoming: [...(targetPage.connections?.incoming || []), connectionState.sourceId],
+        outgoing: targetPage.connections?.outgoing || [],
+        connectors: [...(targetPage.connections?.connectors || []), newConnector]
+      }
+    };
+    
+    // 更新 pages 数组
+    pages.value = pages.value.map(page => {
+      if (page.id === connectionState.sourceId) return updatedSourcePage;
+      if (page.id === payload.id) return updatedTargetPage;
+      return page;
     });
-
+    
+    // 发送更新到服务器
+    sendUpdateElement(connectionState.sourceId, updatedSourcePage);
+    sendUpdateElement(payload.id, updatedTargetPage);
+    
     saveAndNotify('连线', '连接成功');
   }
 };

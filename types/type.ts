@@ -10,6 +10,16 @@ export interface Rect {
   scaleY?: number; 
 }
 
+// 原来的连接器类型
+export interface Connector {
+  id: string;
+  sourceId: number;
+  sourcePoint: string;
+  targetId: number;
+  targetPoint: string;
+}
+
+// 在 WhithBoardItemProps 中添加 connections 属性
 export interface WhithBoardItemProps { 
   rect: Rect; 
   type: Shape; 
@@ -26,8 +36,13 @@ export interface WhithBoardItemProps {
   //旋转
   rotate?: number;
   path?: any;
+  // 新增：连接关系
+  connections?: {
+    incoming?: number[];  // 连接到我的元素ID数组
+    outgoing?: number[];  // 我连接到的元素ID数组
+    connectors?: Connector[]; // 详细的连接器信息
+  };
 }
-
 export type AreaPoint = {
   startX: number
   startY: number
