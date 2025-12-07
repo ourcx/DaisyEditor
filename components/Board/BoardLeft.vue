@@ -161,6 +161,13 @@ const members: Record<string, { name: string; icon: string; key: string }[]> = {
       icon: "pi-plus",
       key: "addSection"
     }
+  ],
+  more:[
+    {
+      name: "打印",
+      icon: "pi-ellipsis-h",
+      key: "more"
+    }
   ]
 }
 

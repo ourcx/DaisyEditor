@@ -321,6 +321,9 @@ import Cursor from '~/components/Cursor/Cursor.vue';
 import OtherUser from '~/components/OtherUser/OtherUser.vue';
 import ConnectorLayer from '~/components/ConnectorLayer/ConnectorLayer.vue';
 import { getHandleCoordinate } from '../../../utils/getHandleCoordinate';
+//@ts-ignore
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 //交互管理
 const interactionMode = ref<'select' | 'drag' | 'canvasDrag' | 'rotate' | 'resize'>('select');
 const historyStore = useHistoryStore();
@@ -2105,6 +2108,17 @@ const initializeEvents = () => {
       }
     }
   ])
+
+  //监听全局的缩放，保持缩放为100%
+  eventManager.addEventListeners([
+    {
+      element: window,
+      type: 'resize',
+      handler: (e) => {
+        document.body.style.zoom = '100%';
+      }
+    }
+  ])
 };
 
 // 工具函数
@@ -2777,6 +2791,11 @@ const toolClick = (cur: any, valueKey: any) => {
         addDialogVisible.value = true
       }
       break;
+    case 'more':
+      console.log('more', valueKey)
+      //打印页面为pdf
+      printPDF()
+      break;
   }
 }
 
@@ -2794,6 +2813,155 @@ const handleProjectAdd = (project: any) => {
 
 
 
+//打印为pdf
+// 安装依赖
+// npm install html2canvas jspdf
+// 打印为PDF - 最终版本
+const printPDF = async () => {
+  try {
+    console.log('开始高质量PDF导出...');
+    
+    // 隐藏不需要的UI元素
+    const elementsToHide = [
+      '.minimap',
+      '#boardLeft',
+      '.bottom-control-bar',
+      '.global-floating-menu',
+      '.floating-trigger'
+    ];
+    
+    const originalStyles = new Map();
+    
+    elementsToHide.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach((el, index) => {
+        originalStyles.set(`${selector}-${index}`, (el as HTMLElement).style.display);
+        (el as HTMLElement).style.display = 'none';
+      });
+    });
+    
+    // 显示所有页面内容
+    const pageItems = document.querySelectorAll('.page-item');
+    pageItems.forEach(el => {
+      (el as HTMLElement).style.opacity = '1';
+      (el as HTMLElement).style.visibility = 'visible';
+    });
+    
+    // 获取白板内容区域
+    const contentElement = canvasRef.value || containerRef.value;
+    if (!contentElement) throw new Error('未找到内容区域');
+    
+    // 等待DOM更新
+    await nextTick();
+    
+    // 计算内容边界
+    const bounds = {
+      top: Infinity,
+      left: Infinity,
+      right: -Infinity,
+      bottom: -Infinity
+    };
+    
+    pages.value.forEach(page => {
+      bounds.left = Math.min(bounds.left, page.rect.x);
+      bounds.top = Math.min(bounds.top, page.rect.y);
+      bounds.right = Math.max(bounds.right, page.rect.x + page.rect.width);
+      bounds.bottom = Math.max(bounds.bottom, page.rect.y + page.rect.height);
+    });
+    
+    const width = bounds.right - bounds.left + 100;
+    const height = bounds.bottom - bounds.top + 100;
+    
+    // 截图
+    const canvas = await html2canvas(contentElement as HTMLElement, {
+      scale: 3, // 超高分辨率
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+      windowWidth: width,
+      windowHeight: height,
+      x: bounds.left - 50,
+      y: bounds.top - 50,
+      width: width,
+      height: height,
+      imageTimeout: 0,
+      removeContainer: true
+    });
+    
+    // 创建PDF
+    const pdf = new jsPDF({
+      orientation: width > height ? 'landscape' : 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+    
+    // 计算PDF页面尺寸（mm）
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    // 计算图片在PDF中的尺寸（保持比例）
+    const scale = Math.min(
+      (pdfWidth - 20) / canvas.width * 25.4 / 96, // 考虑DPI转换
+      (pdfHeight - 20) / canvas.height * 25.4 / 96
+    );
+    
+    const imgWidth = canvas.width * scale;
+    const imgHeight = canvas.height * scale;
+    
+    // 居中显示
+    const x = (pdfWidth - imgWidth) / 2;
+    const y = (pdfHeight - imgHeight) / 2;
+    
+    // 添加图片
+    pdf.addImage(
+      canvas.toDataURL('image/png', 1.0),
+      'PNG',
+      x,
+      y,
+      imgWidth,
+      imgHeight
+    );
+    
+    // 添加水印
+    pdf.setFontSize(10);
+    pdf.setTextColor(150, 150, 150);
+    pdf.text(
+      `Exported from Whiteboard - ${new Date().toLocaleDateString()}`,
+      pdfWidth - 100,
+      pdfHeight - 10
+    );
+    
+    // 保存文件
+    pdf.save(`whiteboard_export_${new Date().getTime()}.pdf`);
+    
+    // 恢复UI元素
+    originalStyles.forEach((style, key) => {
+      const [selector, index] = key.split('-');
+      const elements = document.querySelectorAll(selector);
+      if (elements[parseInt(index)]) {
+        (elements[parseInt(index)] as HTMLElement).style.display = style;
+      }
+    });
+    
+    // 显示成功消息
+    toast.add({
+      severity: "success",
+      summary: "导出成功",
+      detail: "PDF文件已生成并下载",
+      life: 3000,
+    });
+    
+  } catch (error) {
+    console.error('PDF导出失败:', error);
+    
+    toast.add({
+      severity: "error",
+      summary: "导出失败",
+      detail: error instanceof Error ? error.message : "未知错误",
+      life: 3000,
+    });
+  }
+};
 //连线处理
 const handleConnectStart = (payload: { event: MouseEvent; direction: string; id: number }) => {
   const page = pages.value.find(p => p.id === payload.id);
@@ -3109,7 +3277,9 @@ button:disabled {
 }
 
 .page-item {
-  will-change: transform, top, left; 
+  will-change: transform, top, left, width, height;
+  /* 优化 */
+  transition: transform 0.3s ease-in-out;
 }
 
 
