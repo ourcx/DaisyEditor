@@ -28,24 +28,13 @@
 <script setup lang="ts">
 import Popover from 'primevue/popover';
 
-const op = ref()
+const op = ref<InstanceType<typeof Popover>>()
 // 定义 emits
 const emit = defineEmits<{
-  toolClick: [ cur: any, valueKey: any];
+  toolClick: [cur: string, valueKey: any];
 }>();
 
 const list = [
-  // "pi-window-maximize",
-  // "pi-fon",
-  // "pi-sticky-note",
-  // "pi-arrow-right",
-  // "pi-th-large",
-  // "pi-table",
-  // "pi-palette",
-  // "pi-sitemap",
-  // "pi-icons",
-  // "pi-image",
-  // "pi-ellipsis-h"
   {
     icon: "pi-window-maximize",
     toolType: "shape"
@@ -83,11 +72,12 @@ const list = [
     toolType: "more"
   }
 ]
+
 // 工具点击事件处理
 const emitToolClick = (valueKey: any) => {
-  
   emit("toolClick", cur.value, valueKey);
 };
+
 const members: Record<string, { name: string; icon: string; key: string }[]> = {
   shape: [
     {
@@ -136,11 +126,25 @@ const members: Record<string, { name: string; icon: string; key: string }[]> = {
       key: "insertHeart"
     }
   ],
-  text: [
+  sticky: [
     {
-      name: "文本",
-      icon: "pi-file-edit",
-      key: "Text"
+      name: "便利贴",
+      icon: "pi-map-marker",
+      key: "sticky"
+    }
+  ],
+  arrow: [
+    {
+      name: "箭头",
+      icon: "pi-arrow-right",
+      key: "arrow"
+    }
+  ],
+  table: [
+    {
+      name: "表格",
+      icon: "pi-table",
+      key: "table"
     }
   ],
   paintBrush: [
@@ -150,7 +154,21 @@ const members: Record<string, { name: string; icon: string; key: string }[]> = {
       key: "PaintBrush"
     }
   ],
-  section:[
+  mindmap: [
+    {
+      name: "思维导图",
+      icon: "pi-sitemap",
+      key: "mindmap"
+    }
+  ],
+  image: [
+    {
+      name: "插入图片",
+      icon: "pi-image",
+      key: "Image"
+    }
+  ],
+  section: [
     {
       name: "切换页",
       icon: "pi-th-large",
@@ -162,11 +180,41 @@ const members: Record<string, { name: string; icon: string; key: string }[]> = {
       key: "addSection"
     }
   ],
-  more:[
+  more: [
     {
       name: "打印",
-      icon: "pi-ellipsis-h",
-      key: "more"
+      icon: "pi-print",
+      key: "print"
+    },
+    {
+      name: "导出",
+      icon: "pi-download",
+      key: "export"
+    },
+    {
+      name: "导入",
+      icon: "pi-upload",
+      key: "import"
+    },
+    {
+      name: "设置",
+      icon: "pi-cog",
+      key: "settings"
+    },
+    {
+      name: "网格",
+      icon: "pi-th-large",
+      key: "grid"
+    },
+    {
+      name: "全屏",
+      icon: "pi-window-maximize",
+      key: "fullscreen"
+    },
+    {
+      name: "截图",
+      icon: "pi-camera",
+      key: "snapshot"
     }
   ]
 }
@@ -178,19 +226,208 @@ const computedMembers = computed(() => {
 
 const toggle = (event: Event, toolType: string) => {
   //event是父元素
-  op.value.hide();
+  op.value?.hide();
   event.stopPropagation();
   nextTick(() => {
-    op.value.show(event);
+    op.value?.show(event);
     cur.value = toolType as keyof typeof members
   });
 }
 
+// 添加自定义工具的方法
+const customTools = ref<Record<string, { name: string; icon: string; key: string }[]>>({});
+
+/**
+ * 添加自定义工具
+ * @param category 工具类别
+ * @param tools 工具数组
+ */
+const addCustomTools = (category: string, tools: { name: string; icon: string; key: string }[]) => {
+  customTools.value[category] = tools;
+};
+
+/**
+ * 更新工具列表
+ * @param category 工具类别
+ * @param tools 新的工具数组
+ */
+const updateTools = (category: keyof typeof members, tools: { name: string; icon: string; key: string }[]) => {
+  members[category] = tools;
+};
+
+/**
+ * 移除工具类别
+ * @param category 要移除的工具类别
+ */
+const removeToolCategory = (category: string) => {
+  if (members[category as keyof typeof members]) {
+    delete members[category as keyof typeof members];
+    if (cur.value === category) {
+      cur.value = "shape"; // 切换到默认类别
+    }
+  }
+};
+
+/**
+ * 获取当前工具类别
+ * @returns 当前工具类别
+ */
+const getCurrentToolType = () => cur.value;
+
+/**
+ * 设置当前工具类别
+ * @param toolType 工具类别
+ */
+const setCurrentToolType = (toolType: keyof typeof members) => {
+  if (members[toolType]) {
+    cur.value = toolType;
+  }
+};
+
+/**
+ * 获取所有工具类别
+ * @returns 所有工具类别数组
+ */
+const getAllToolTypes = () => {
+  return Object.keys(members) as Array<keyof typeof members>;
+};
+
+/**
+ * 获取指定类别的工具列表
+ * @param category 工具类别
+ * @returns 工具列表
+ */
+const getToolsByCategory = (category: keyof typeof members) => {
+  return members[category] || [];
+};
+
+/**
+ * 显示工具栏
+ * @param event 可选的事件对象，用于定位弹出框
+ */
+const show = (event?: Event) => {
+  if (event) {
+    op.value?.show(event);
+  }
+};
+
+/**
+ * 隐藏工具栏
+ */
+const hide = () => {
+  op.value?.hide();
+};
+
+/**
+ * 切换工具栏显示/隐藏状态
+ * @param event 可选的事件对象，用于定位弹出框
+ */
+const toggleVisibility = (event?: Event) => {
+  if (op.value) {
+    toggle(event || new Event('click'), cur.value);
+  }
+};
+
+/**
+ * 重置工具栏到默认状态
+ */
+const reset = () => {
+  cur.value = "shape";
+};
+
+// 根据父组件的处理函数动态设置工具激活状态
+const activeTool = ref<string | null>(null);
+
+// 监听外部工具选择
+const setActiveTool = (toolType: string, toolKey: string) => {
+  const toolCategory = Object.keys(members).find(category => 
+    members[category as keyof typeof members]?.some(tool => tool.key === toolKey)
+  ) as keyof typeof members;
+  
+  if (toolCategory) {
+    cur.value = toolCategory;
+    activeTool.value = toolKey;
+  }
+};
+
+// 暴露给父组件的方法
 defineExpose({
-  // 可以在这里添加一些组件方法，比如显示/隐藏工具栏等
+  addCustomTools,
+  updateTools,
+  removeToolCategory,
+  getCurrentToolType,
+  setCurrentToolType,
+  getAllToolTypes,
+  getToolsByCategory,
+  show,
+  hide,
+  toggleVisibility,
+  reset,
+  setActiveTool,
+  // 工具数据
+  toolData: members,
+  // 当前激活的工具
+  activeTool: computed(() => activeTool.value),
+  // Popover 实例
+  popoverInstance: op
 });
 </script>
 
 <style scoped>
-/* 可以在这里添加一些自定义样式，如果需要的话 */
+.board-menu-item:hover {
+  background-color: #f3f4f6;
+}
+
+.board-menu-item:active {
+  background-color: #e5e7eb;
+  transform: scale(0.95);
+}
+
+#whiteboard-toolbar-container {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+#whiteboard-toolbar-container button:hover {
+  background-color: #a7f3d0;
+}
+
+#whiteboard-toolbar-container button:active {
+  background-color: #6ee7b7;
+}
+
+/* 工具按钮激活状态 */
+#whiteboard-toolbar-container button.active {
+  background-color: #10b981;
+  color: white;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  #whiteboard-toolbar-container {
+    left: 12px;
+    padding: 0.5rem;
+  }
+
+}
+
+/* 暗色模式支持 */
+@media (prefers-color-scheme: dark) {
+  #whiteboard-toolbar-container {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+
+  .board-menu-item:hover {
+    background-color: #374151;
+  }
+
+  #whiteboard-toolbar-container button:hover {
+    background-color: #065f46;
+  }
+  
+  #whiteboard-toolbar-container button.active {
+    background-color: #059669;
+  }
+}
 </style>

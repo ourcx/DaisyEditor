@@ -89,3 +89,35 @@ export interface ConnectionState {
   endX: number;
   endY: number;
 }
+
+
+// 在 types 文件中添加或完善以下类型定义
+export interface ToolActionData {
+  name: string;
+  icon: string;
+  key: string;
+}
+
+export interface BrushData {
+  rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  type: string;
+  background: string;
+  borderWidth: number;
+  borderColor: string;
+  id: number;
+  path: string;
+  connections?: {
+    incoming: number[];
+    outgoing: number[];
+    connectors: any[];
+  };
+}
+
+export interface ToolActionHandlers {
+  [key: string]: (valueKey: ToolActionData) => void;
+}

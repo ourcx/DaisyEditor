@@ -300,7 +300,7 @@ definePageMeta({
 import { ref, computed, onMounted, nextTick, reactive, type CSSProperties, watch } from 'vue';
 import { Drawer, Rect as Rectutils } from '~/utils/canvasExtend/drawer-ui';
 import StorageIndexDB from '~/utils/storage';
-import type { AreaPoint, Connector, MenuData, MenuItem, RectInfo, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
+import type { AreaPoint, BrushData, Connector, MenuData, MenuItem, RectInfo, ToolActionData, ToolActionHandlers, WhithBoardItemProps as WhithBoardProps } from '~/types/type';
 import { useEventManager } from '~/service/DomEvent';
 import BoardItem from '~/components/Board/BoardItem.vue';
 import BoardLeft from '~/components/Board/BoardLeft.vue';
@@ -364,6 +364,7 @@ const socketCallbacks: SocketCallbacks = {
   },
   onInitialElements: (elements) => {
     console.log('初始元素列表:', elements);
+    pages.value = elements.map(item => ({ ...item.data }));
   },
   onElementCreated: (element) => {
     console.log('收到远程新元素:', element);
@@ -958,22 +959,6 @@ const duplicatePage = () => {
   }
 };
 
-// 添加一个辅助函数来获取特定页面的所有连接器
-const getPageConnectors = (pageId: number) => {
-  const page = pages.value.find(p => p.id === pageId);
-  return page?.connections?.connectors || [];
-};
-
-// 添加一个辅助函数来获取连接到特定页面的所有页面
-const getConnectedPages = (pageId: number) => {
-  const page = pages.value.find(p => p.id === pageId);
-  const connectedPageIds = [
-    ...(page?.connections?.incoming || []),
-    ...(page?.connections?.outgoing || [])
-  ];
-  
-  return pages.value.filter(p => connectedPageIds.includes(p.id));
-};
 
 // 删除当前页面
 const deleteCurrentPage = () => {
@@ -2859,46 +2844,625 @@ const drawGuideLines = () => {
   });
 };
 
-const toolClick = (cur: any, valueKey: any) => {
-  console.log('toolClick', cur);
+
+
+// 完善 toolClick 函数
+const toolClick = (cur: string, valueKey: ToolActionData) => {
+  console.log('toolClick', cur, valueKey);
+  
   const data: menuData = {
     name: valueKey.name,
     icon: valueKey.icon,
     action: valueKey.key
-  }
-  const x = transformRef.value.x;
-  const y = transformRef.value.y;
-  switch (cur) {
-    case 'shape':
-      ClickBoardMeun(data, x, y)
+  };
+  
+  // 获取画布当前位置（考虑缩放和偏移）
+  const getCanvasPosition = () => {
+    const container = containerRef.value;
+    if (!container) return { x: 0, y: 0 };
+    
+    const rect = container.getBoundingClientRect();
+    // 将视口坐标转换为画布坐标
+    const canvasX = -transformRef.value.x / transformRef.value.scale;
+    const canvasY = -transformRef.value.y / transformRef.value.scale;
+    
+    // 计算中心点位置
+    const centerX = canvasX + rect.width / (2 * transformRef.value.scale);
+    const centerY = canvasY + rect.height / (2 * transformRef.value.scale);
+    
+    return { x: centerX, y: centerY };
+  };
+  
+  const { x, y } = getCanvasPosition();
+  
+  // 创建工具处理函数映射表
+  const toolHandlers: ToolActionHandlers = {
+    shape: () => {
+      const elementData = createShapeElement(valueKey, x, y);
+      if (elementData) {
+        pages.value.push(elementData);
+        sendCreateElement(elementData);
+        
+        // 自动选中新创建的元素
+        setTimeout(() => {
+          const elementId = `id-key-${elementData.id}`;
+          highRectList.value.clear();
+          highRectList.value.add(elementId);
+        }, 50);
+        
+        toast.add({
+          severity: "success",
+          summary: "创建成功",
+          detail: `已添加${valueKey.name}元素在画布中心位置`,
+          life: 2000,
+        });
+      }
+    },
+    
+    paintBrush: () => {
+      const brushData = createBrushElement(x, y);
+      pages.value.push(brushData as WhithBoardProps);
+      sendCreateElement(brushData as WhithBoardProps);
+      
+      toast.add({
+        severity: "info",
+        summary: "画笔模式",
+        detail: "已进入画笔模式，在画布上绘制",
+        life: 2000,
+      });
+    },
+    
+    arrow: () => {
+      const arrowData = createArrowElement(x, y);
+      pages.value.push(arrowData);
+      sendCreateElement(arrowData);
+      
       toast.add({
         severity: "success",
-        summary: "成功",
-        detail: "已添加" + valueKey.name + "元素在" + `${transformRef.value.x},${transformRef.value.y}`,
+        summary: "创建成功",
+        detail: "已添加箭头元素",
         life: 2000,
-      })
-      break;
-    case 'paintBrush':
-      //画布
-      const BrushData = { rect: { x: x, y: y, width: 200, height: 200 }, type: 'Free', background: "transparent", borderWidth: 2, borderColor: '#ff9800', id: Date.now(), path: '' }
-      pages.value.push(BrushData as WhithBoardProps)
-      sendCreateElement(BrushData as WhithBoardProps)
-      break;
-    case 'section':
-      console.log('section', valueKey)
-      if (valueKey.key == 'section') {
-        dialogVisible.value = true
-      } else {
-        addDialogVisible.value = true
+      });
+    },
+    
+    sticky: () => {
+      const stickyData = createStickyNote(x, y);
+      pages.value.push(stickyData);
+      sendCreateElement(stickyData);
+      
+      toast.add({
+        severity: "success",
+        summary: "创建成功",
+        detail: "已添加便利贴",
+        life: 2000,
+      });
+    },
+    
+    table: () => {
+      const tableData = createTableElement(x, y);
+      pages.value.push(tableData);
+      sendCreateElement(tableData);
+      
+      toast.add({
+        severity: "success",
+        summary: "创建成功",
+        detail: "已添加表格",
+        life: 2000,
+      });
+    },
+    
+    mindmap: () => {
+      const mindmapData = createMindMap(x, y);
+      pages.value.push(mindmapData);
+      sendCreateElement(mindmapData);
+      
+      toast.add({
+        severity: "success",
+        summary: "创建成功",
+        detail: "已添加思维导图节点",
+        life: 2000,
+      });
+    },
+    
+    image: () => {
+      handleImageTool();
+    },
+    
+    section: () => {
+      if (valueKey.key === 'section') {
+        dialogVisible.value = true;
+      } else if (valueKey.key === 'addSection') {
+        addDialogVisible.value = true;
       }
-      break;
-    case 'more':
-      console.log('more', valueKey)
-      //打印页面为pdf
-      printPDF()
-      break;
+    },
+    
+    more: () => {
+      handleMoreTools(valueKey);
+    }
+  };
+  
+  // 执行对应的处理函数
+  if (toolHandlers[cur]) {
+    //@ts-ignore
+    toolHandlers[cur]();
+  } else {
+    console.warn(`未找到工具类型: ${cur}`);
   }
-}
+};
+
+// 创建形状元素的辅助函数
+const createShapeElement = (valueKey: ToolActionData, x: number, y: number): WhithBoardProps | null => {
+  const elementId = Date.now();
+  const defaultSize = 200;
+  const padding = 20;
+  
+  // 不同类型的默认配置
+  const shapeConfigs: Record<string, Partial<WhithBoardProps>> = {
+    Rect: {
+      type: 'Rect',
+      background: '#e3f2fd',
+      borderColor: '#2196f3',
+    },
+    Circle: {
+      type: 'circle',
+      background: '#fce4ec',
+      borderColor: '#e91e63',
+    },
+    Triangle: {
+      type: 'triangle',
+      background: '#fff3e0',
+      borderColor: '#ff9800',
+    },
+    Line: {
+      type: 'Line',
+      background: 'transparent',
+      borderColor: '#000000',
+      rect: { x, y, width: 300, height: 4, scaleX: 1, scaleY: 1 },
+    },
+    Text: {
+      type: 'Text',
+      background: '#ffffff',
+      borderColor: '#9e9e9e',
+      text: '请输入文本',
+      textSize: 16,
+      textWeight: 'normal',
+      BIUSArr: [],
+    },
+    Image: {
+      type: 'Image',
+      background: '#ffffff',
+      borderColor: '#9e9e9e',
+      image: '',
+      filter: 'none' as Filter,
+    },
+    insertArrow: {
+      type: 'insertArrow',
+      background: '#fff8e1',
+      borderColor: '#ffc107',
+    },
+    insertStar: {
+      type: 'insertStar',
+      background: '#fffde7',
+      borderColor: '#ffeb3b',
+    },
+    insertHeart: {
+      type: 'insertHeart',
+      background: '#ffebee',
+      borderColor: '#f44336',
+    }
+  };
+  
+  const config = shapeConfigs[valueKey.key];
+  if (!config) return null;
+  
+  return {
+    id: elementId,
+    rect: {
+      x: x - defaultSize / 2,
+      y: y - defaultSize / 2,
+      width: defaultSize,
+      height: defaultSize,
+      scaleX: 1,
+      scaleY: 1
+    },
+    type: config.type!,
+    background: config.background!,
+    borderWidth: 2,
+    borderColor: config.borderColor!,
+    rotate: 0,
+    connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    },
+    ...config
+  };
+};
+
+// 创建画笔元素的辅助函数
+const createBrushElement = (x: number, y: number): BrushData => {
+  const defaultSize = 200;
+  
+  return {
+    rect: {
+      x: x - defaultSize / 2,
+      y: y - defaultSize / 2,
+      width: defaultSize,
+      height: defaultSize
+    },
+    type: 'Free',
+    background: "transparent",
+    borderWidth: 2,
+    borderColor: '#ff9800',
+    id: Date.now(),
+    path: '',
+    connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  };
+};
+
+// 创建箭头元素的辅助函数
+const createArrowElement = (x: number, y: number): WhithBoardProps => {
+  return {
+    id: Date.now(),
+    rect: {
+      x: x - 100,
+      y: y - 50,
+      width: 200,
+      height: 100,
+      scaleX: 1,
+      scaleY: 1
+    },
+    type: 'insertArrow',
+    background: '#fff8e1',
+    borderWidth: 2,
+    borderColor: '#ffc107',
+    rotate: 0,
+    connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  };
+};
+
+// 创建便利贴的辅助函数
+const createStickyNote = (x: number, y: number): WhithBoardProps => {
+  return {
+    id: Date.now(),
+    rect: {
+      x: x - 150,
+      y: y - 100,
+      width: 300,
+      height: 200,
+      scaleX: 1,
+      scaleY: 1
+    },
+    type: 'sticky',
+    background: '#fff9c4',
+    borderWidth: 2,
+    borderColor: '#ffd54f',
+    text: '便签内容...',
+    textSize: 14,
+    textWeight: 'normal',
+    BIUSArr: [],
+    rotate: 0,
+    connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  };
+};
+
+// 创建表格元素的辅助函数
+const createTableElement = (x: number, y: number): WhithBoardProps => {
+  return {
+    id: Date.now(),
+    rect: {
+      x: x - 200,
+      y: y - 150,
+      width: 400,
+      height: 300,
+      scaleX: 1,
+      scaleY: 1
+    },
+    type: 'table',
+    background: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    // rows: 3,
+    // cols: 3,
+    rotate: 0,
+    connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  };
+};
+
+// 创建思维导图的辅助函数
+const createMindMap = (x: number, y: number): WhithBoardProps => {
+  return {
+    id: Date.now(),
+    rect: {
+      x: x - 100,
+      y: y - 100,
+      width: 200,
+      height: 200,
+      scaleX: 1,
+      scaleY: 1
+    },
+    type: 'mindmap',
+    background: '#f3e5f5',
+    borderWidth: 2,
+    borderColor: '#9c27b0',
+    text: '中心主题',
+    textSize: 16,
+    textWeight: 'bold',
+    BIUSArr: [],
+    rotate: 0,
+    connections: {
+      incoming: [],
+      outgoing: [],
+      connectors: []
+    }
+  };
+};
+
+// 处理图片工具
+const handleImageTool = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  
+  input.onchange = (e) => {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageDataUrl = e.target?.result as string;
+      
+      // 获取画布中心位置
+      const { x, y } = (() => {
+        const container = containerRef.value;
+        if (!container) return { x: 0, y: 0 };
+        
+        const rect = container.getBoundingClientRect();
+        const canvasX = -transformRef.value.x / transformRef.value.scale;
+        const canvasY = -transformRef.value.y / transformRef.value.scale;
+        return {
+          x: canvasX + rect.width / (2 * transformRef.value.scale),
+          y: canvasY + rect.height / (2 * transformRef.value.scale)
+        };
+      })();
+      
+      const imageId = Date.now();
+      const defaultSize = 300;
+      
+      const imageElement: WhithBoardProps = {
+        id: imageId,
+        rect: {
+          x: x - defaultSize / 2,
+          y: y - defaultSize / 2,
+          width: defaultSize,
+          height: defaultSize,
+          scaleX: 1,
+          scaleY: 1
+        },
+        type: 'Image',
+        background: '#ffffff',
+        borderWidth: 2,
+        borderColor: '#9e9e9e',
+        image: imageDataUrl,
+        filter: 'none' as Filter,
+        rotate: 0,
+        connections: {
+          incoming: [],
+          outgoing: [],
+          connectors: []
+        }
+      };
+      
+      pages.value.push(imageElement);
+      sendCreateElement(imageElement);
+      
+      toast.add({
+        severity: "success",
+        summary: "图片上传",
+        detail: "图片已添加到画布",
+        life: 2000,
+      });
+    };
+    
+    reader.readAsDataURL(file);
+  };
+  
+  input.click();
+};
+
+// 处理更多工具选项
+const handleMoreTools = (valueKey: ToolActionData) => {
+  const handlers: Record<string, () => void> = {
+    print: () => {
+      printPDF();
+    },
+    
+export: () => {
+      handleExport();
+    },
+    
+    import: () => {
+      handleImport();
+    },
+    
+    settings: () => {
+      openSettings();
+    },
+    
+    // 可以继续添加其他更多工具的处理函数
+    grid: () => {
+      toggleGuides();
+    },
+    
+    fullscreen: () => {
+      toggleFullscreen();
+    },
+    
+    snapshot: () => {
+      takeSnapshot();
+    }
+  };
+  
+  if (handlers[valueKey.key]) {
+    handlers[valueKey.key]!();
+  }
+};
+
+// 导出功能
+const handleExport = () => {
+  const exportData = {
+    pages: pages.value,
+    transform: transformRef.value,
+    exportTime: new Date().toISOString(),
+    version: '1.0'
+  };
+  
+  const dataStr = JSON.stringify(exportData, null, 2);
+  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+  
+  const url = URL.createObjectURL(dataBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `whiteboard-export-${new Date().getTime()}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  
+  toast.add({
+    severity: "success",
+    summary: "导出成功",
+    detail: "白板数据已导出为JSON文件",
+    life: 2000,
+  });
+};
+
+// 导入功能
+const handleImport = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.onchange = async (e) => {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      // 验证数据格式
+      if (data.pages && Array.isArray(data.pages)) {
+        // 确认导入
+        const confirmed = confirm('导入数据将覆盖当前白板内容，是否继续？');
+        if (confirmed) {
+          pages.value = data.pages;
+          if (data.transform) {
+            transformRef.value = data.transform;
+          }
+          
+          addHistory();
+          getAllDomPoint();
+          refreshMinimap();
+          
+          toast.add({
+            severity: "success",
+            summary: "导入成功",
+            detail: "白板数据已导入",
+            life: 2000,
+          });
+        }
+      } else {
+        throw new Error('无效的数据格式');
+      }
+    } catch (error) {
+      toast.add({
+        severity: "error",
+        summary: "导入失败",
+        detail: error instanceof Error ? error.message : "无法解析导入文件",
+        life: 3000,
+      });
+    }
+  };
+  
+  input.click();
+};
+
+// 打开设置面板
+const openSettings = () => {
+  // 可以在这里实现设置面板的逻辑
+  // 例如显示一个模态框或侧边栏
+  
+  toast.add({
+    severity: "info",
+    summary: "设置",
+    detail: "设置面板开发中...",
+    life: 2000,
+  });
+};
+
+// 切换全屏
+const toggleFullscreen = () => {
+  const elem = document.documentElement;
+  
+  if (!document.fullscreenElement) {
+    elem.requestFullscreen().catch(err => {
+      console.error(`全屏请求失败: ${err.message}`);
+    });
+  } else {
+    document.exitFullscreen();
+  }
+};
+
+// 截图功能
+const takeSnapshot = async () => {
+  try {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) throw new Error('未找到画布');
+    
+    const link = document.createElement('a');
+    link.download = `snapshot-${new Date().getTime()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    
+    toast.add({
+      severity: "success",
+      summary: "截图保存",
+      detail: "画布截图已保存",
+      life: 2000,
+    });
+  } catch (error) {
+    toast.add({
+      severity: "error",
+      summary: "截图失败",
+      detail: error instanceof Error ? error.message : "未知错误",
+      life: 3000,
+    });
+  }
+};
+
+
+
 
 
 //项目添加
@@ -3191,7 +3755,6 @@ onMounted(async () => {
   });
   // 初始化事件
   initializeEvents();
-
   // 初始化画布
   initCanvas();
 

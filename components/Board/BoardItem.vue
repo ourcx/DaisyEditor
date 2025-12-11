@@ -380,10 +380,33 @@ const updateAttributes = async () => {
         }
       }
       break;
+    case "sticky":
+      currentShape.attr("x", 0).attr("y", 0).attr("width", w).attr("height", h);
+      updateStickyText(centerX,centerY);
+      updateStickyTextColor();
+
   }
 
   // 更新选中框
   updateSelectionVisibility();
+};
+
+const updateStickyTextColor = () => {
+  if (!currentShape) return;
+  currentShape.select("text")
+    .style("fill", props.textColor);
+};
+const updateStickyText = (centerX: number, centerY: number) => { 
+  if (!currentShape) return;
+  currentShape.select("text")
+    .attr("x", centerX).attr("y", centerY)
+    .text(props.text || "Sticky")
+    .style("font-size", "16px")
+    .style("font-weight", props.textWeight)
+    .style("fill", props.textColor)
+    .style("text-align", "center")
+    .style("text-anchor", "middle")
+    .style("dominant-baseline", "middle")
 };
 
 // --- 画笔功能 ---
